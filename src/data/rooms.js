@@ -84,6 +84,23 @@ export const ROOMS = {
         note: 'Somebody\'s anniversary tab, signed and tipped generously. Nothing here but a good night, cut short.',
         redHerring: true,
         requires: { optional: true }
+      },
+      {
+        id: 'F-05',
+        fx: 0.42,
+        fy: 0.4,
+        name: 'A cracked window pane, patched over with duct tape',
+        note: 'Been like that since spring, if the yellowed tape is anything to go by. Never quite made it onto anyone\'s to-do list.',
+        requires: { optional: true }
+      },
+      {
+        id: 'F-06',
+        fx: 0.32,
+        fy: 0.78,
+        name: 'A muddy shoe print, turned back toward the door',
+        note: 'One set of prints, in and back out again. Could be anyone who stepped onto the wet patio tonight and thought better of it — half this bar did exactly that.',
+        redHerring: true,
+        requires: { optional: true }
       }
     ],
     npcs: [
@@ -138,6 +155,23 @@ export const ROOMS = {
         note: "She says she left right after she got fired, around eleven. The hood's still warm to the touch — long after eleven, whatever she says about it.",
         implicates: 'Nikki Alvarez',
         alibiBreak: true
+      },
+      {
+        id: 'P-05',
+        fx: 0.38,
+        fy: 0.62,
+        name: "Duck's truck, tailgate hanging open",
+        note: 'Nothing in the bed but a spare tire and a case of empties. He\'s been meaning to return those for a month.',
+        requires: { optional: true }
+      },
+      {
+        id: 'P-06',
+        fx: 0.12,
+        fy: 0.82,
+        name: 'A crushed beer can, half-sunk in the gravel',
+        note: 'Somebody\'s idea of cleaning up after themselves. Could\'ve been dropped any night this month.',
+        redHerring: true,
+        requires: { optional: true }
       }
     ],
     npcs: [
@@ -181,6 +215,23 @@ export const ROOMS = {
         fy: 0.82,
         name: 'A stack of empty kegs, one badly dented',
         note: 'Rolled out here after tonight\'s crowd went through them faster than usual. The dent looks older than tonight.',
+        requires: { optional: true }
+      },
+      {
+        id: 'L-04',
+        fx: 0.75,
+        fy: 0.68,
+        name: 'A flattened cardboard box, gone soft with rain',
+        note: 'Recycling that never quite makes it to the bin. Somebody complained about it constantly and never once fixed it themselves.',
+        requires: { optional: true }
+      },
+      {
+        id: 'L-05',
+        fx: 0.28,
+        fy: 0.38,
+        name: 'A single work glove, dropped near the wall',
+        note: 'Left by whoever took the recycling out last, probably. Nobody\'s claimed it.',
+        redHerring: true,
         requires: { optional: true }
       }
     ],
@@ -232,6 +283,23 @@ export const ROOMS = {
         note: "Steep, narrow, and poorly lit — a bad place to lose your footing. Fresh scuff marks drag across two of the steps, and a torn scrap of black fabric is snagged on the railing near the bottom, at just about apron height.",
         requires: { killer: 'Nikki Alvarez', killerMethod: 'staged-accident' },
         implicates: 'Nikki Alvarez'
+      },
+      {
+        id: 'B-06',
+        fx: 0.48,
+        fy: 0.72,
+        name: 'An overturned folding chair by the smoke-break spot',
+        note: 'Knocked over sometime tonight and never set back up — could\'ve been the wind, could\'ve been somebody in a hurry. Half the chairs out here wobble anyway.',
+        requires: { optional: true }
+      },
+      {
+        id: 'B-07',
+        fx: 0.15,
+        fy: 0.72,
+        name: 'A torn beer coaster, rain-soaked and stuck to the concrete',
+        note: 'Somebody\'s bar napkin doodle, smeared past reading by the rain. Just trash, same as everything else out here.',
+        redHerring: true,
+        requires: { optional: true }
       }
     ],
     npcs: []
@@ -264,6 +332,22 @@ export const ROOMS = {
         fy: 0.07,
         name: 'A security camera, actually working this time',
         note: "Blinking red, recording faithfully — pointed at an empty stretch of wall, angled wrong since the day it went up. Useless, but not for any sinister reason.",
+        requires: { optional: true }
+      },
+      {
+        id: 'R-04',
+        fx: 0.25,
+        fy: 0.6,
+        name: 'A stack of empty liquor boxes, flattened for recycling',
+        note: 'Broken down after tonight\'s rush. Whoever did it stacked them neater than most people bother to.',
+        requires: { optional: true }
+      },
+      {
+        id: 'R-05',
+        fx: 0.5,
+        fy: 0.88,
+        name: 'A rain-soaked delivery invoice, pinned under a loose brick',
+        note: "Tonight's liquor order, signed for around six. Nothing unusual — the party needed restocking same as any big night.",
         requires: { optional: true }
       }
     ],
