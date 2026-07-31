@@ -106,7 +106,7 @@ export const ROOMS = {
     npcs: [
       {
         tint: 0x8fa9c9,
-        name: 'Tiny Escobar',
+        name: 'Danny "Tiny" Fisher',
         portraitKey: 'portrait-tiny',
         fx: 0.64,
         fy: 0.58,
@@ -688,8 +688,8 @@ export const ROOMS = {
         fy: 0.58,
         name: 'A draft sale contract, sitting on the desk',
         note: "A development firm's letterhead, and Derek's signature already penciled in. The whole bar, sold out from under every single person who works here — no warning, no severance, nothing.",
-        requires: { npc: 'Tiny Escobar' },
-        implicates: 'Tiny Escobar'
+        requires: { npc: 'Danny "Tiny" Fisher' },
+        implicates: 'Danny "Tiny" Fisher'
       },
       {
         id: 'O-05',
@@ -706,8 +706,8 @@ export const ROOMS = {
         fy: 0.7,
         name: 'A bar stool, wiped down, propped behind the door',
         note: "Doesn't belong in here at all — every stool in the building lives out front. Wiped clean, but a few dark flecks remain caught in the joint where the rag missed.",
-        requires: { killer: 'Tiny Escobar', killerMethod: 'blunt-force' },
-        implicates: 'Tiny Escobar'
+        requires: { killer: 'Danny "Tiny" Fisher', killerMethod: 'blunt-force' },
+        implicates: 'Danny "Tiny" Fisher'
       },
       {
         id: 'O-07',

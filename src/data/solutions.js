@@ -28,7 +28,7 @@ export const SOLUTIONS = [
     ]
   },
   {
-    killer: 'Tiny Escobar',
+    killer: 'Danny "Tiny" Fisher',
     method: 'blunt-force',
     keyEvidence: ['O-04', 'O-06'],
     sceneNotes: {

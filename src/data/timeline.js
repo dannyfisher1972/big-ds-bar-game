@@ -35,7 +35,7 @@ export const TIMELINE = [
   {
     time: '23:40', label: '11:40 PM',
     text: 'Tiny begins the final walkthrough, locking up the patio.',
-    reveal: { npc: 'Tiny Escobar', questionId: 'alibi' }
+    reveal: { npc: 'Danny "Tiny" Fisher', questionId: 'alibi' }
   },
   {
     time: '23:50', label: '11:50 PM',

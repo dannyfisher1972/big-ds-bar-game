@@ -29,7 +29,7 @@ export const FOLLOWUPS = [
   {
     id: 'confirm-tiny-walkthrough',
     target: 'Jade Marlow',
-    unlocksAfter: { npc: 'Tiny Escobar', questionId: 'alibi' },
+    unlocksAfter: { npc: 'Danny "Tiny" Fisher', questionId: 'alibi' },
     text: 'Tiny says he was doing the final walkthrough alone. Did you see him out front while you were closing up?'
   },
   {
@@ -77,7 +77,7 @@ export const FOLLOWUPS = [
   },
   {
     id: 'ask-tiny-contract',
-    target: 'Tiny Escobar',
+    target: 'Danny "Tiny" Fisher',
     unlocksAfter: { evidence: 'O-04' },
     text: "There's a draft sale contract on Derek's desk — the whole bar, sold out from under everybody. Did you know?"
   },

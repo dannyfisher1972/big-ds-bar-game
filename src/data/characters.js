@@ -26,7 +26,7 @@ const META = {
       'ask-jade-poison': "That's supposed to be under the sink for the actual rats we've got. I couldn't tell you where it went."
     }
   },
-  'Tiny Escobar': {
+  'Danny "Tiny" Fisher': {
     role: 'Bouncer / Night Manager, 10 Years',
     bio: "Ex-boxer, ten years of loyalty to Derek, and lately covering payroll shortfalls out of his own pocket without being asked. He found the sale paperwork himself, going through the desk for something unrelated — Derek was quietly negotiating to sell the bar out from under every person who worked there, no warning, no severance.",
     answers: {
