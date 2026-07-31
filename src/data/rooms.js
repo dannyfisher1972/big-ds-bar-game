@@ -93,7 +93,7 @@ export const ROOMS = {
         portraitKey: 'portrait-tiny',
         fx: 0.64,
         fy: 0.58,
-        line: '"Doing the last walkthrough, same as every night. Patio, then the front door. I lock up — always have."'
+        line: '"Ten years I\'ve had this man\'s back. Now there\'s a body in his office and half this bar looking at me like I did it."'
       }
     ]
   },
@@ -147,7 +147,7 @@ export const ROOMS = {
         portraitKey: 'portrait-nikki',
         fx: 0.65,
         fy: 0.5,
-        line: '"I left right after he fired me. I wasn\'t sticking around to watch everybody else keep partying."'
+        line: '"Guess it doesn\'t matter that he fired me anymore, huh. Kind of hard to feel bad about that part tonight."'
       }
     ]
   },
@@ -438,7 +438,7 @@ export const ROOMS = {
         portraitKey: 'portrait-jade',
         fx: 0.15,
         fy: 0.32,
-        line: '"Behind the bar doing the final count, same as every closing shift. That\'s when I found him."'
+        line: '"I found him. I keep waiting for that to stop being the only thing anyone wants to talk to me about tonight."'
       },
       {
         tint: 0xc9a24a,
@@ -446,7 +446,7 @@ export const ROOMS = {
         portraitKey: 'portrait-sonny',
         fx: 0.5,
         fy: 0.48,
-        line: '"Playing pool with the regulars most of the night. I left before closing — ask anybody."'
+        line: '"Whatever you heard about me and Derek, I didn\'t need him dead. Dead men are terrible at paying what they owe."'
       },
       {
         tint: 0xd97a9c,
@@ -454,7 +454,7 @@ export const ROOMS = {
         portraitKey: 'portrait-marisol',
         fx: 0.62,
         fy: 0.47,
-        line: '"Holding court in my usual booth, same as every anniversary. I left before close, same as always."'
+        line: '"Twenty-two years married to that man, and I still heard he was dead from a bartender half my age."'
       },
       {
         tint: 0x3ddad7,
@@ -462,7 +462,7 @@ export const ROOMS = {
         portraitKey: 'portrait-cruz',
         fx: 0.82,
         fy: 0.38,
-        line: '"Behind the booth all night. Stepped away during a song at some point — maybe twenty minutes, tops."'
+        line: '"Somebody\'s going to ask if I\'m broken up about this. I\'d rather talk about literally anything else."'
       },
       {
         tint: 0xb5c98f,
@@ -470,7 +470,7 @@ export const ROOMS = {
         portraitKey: 'portrait-duck',
         fx: 0.58,
         fy: 0.42,
-        line: '"Darts most of the night, then out back for a smoke around closing. On my own."'
+        line: '"Forty years I knew that man. Turns out I didn\'t know him at all, not by the end of it."'
       },
       {
         tint: 0x9b7fd4,
@@ -478,7 +478,7 @@ export const ROOMS = {
         portraitKey: 'portrait-roz',
         fx: 0.08,
         fy: 0.78,
-        line: '"Sitting right at my usual table most of the night, nursing my usual. Stepped away for a few minutes — powder room. Couldn\'t tell you exactly when."'
+        line: '"Well, he\'s not calling anybody\'s kids now, is he. Don\'t look at me like that — I\'m allowed to say it."'
       },
       {
         tint: 0x7f9bd4,
@@ -486,7 +486,7 @@ export const ROOMS = {
         portraitKey: 'portrait-dale',
         fx: 0.95,
         fy: 0.82,
-        line: '"Sitting at my own table the whole night, drinking steadily. Only got up for the restroom, same as I always do."'
+        line: '"Everybody in this room\'s got a story about Derek tonight. Mine\'s just uglier than most of theirs."'
       },
       {
         tint: 0xe85d75,
@@ -494,7 +494,7 @@ export const ROOMS = {
         portraitKey: 'portrait-skylar',
         fx: 0.25,
         fy: 0.48,
-        line: '"Around the bar most of the night, same as usual. Stepped out back for some air around when they\'re saying it happened. Alone."'
+        line: '"He humiliated me in front of this whole bar a few hours ago. Forgive me if I\'m not first in line to cry about him."'
       }
     ]
   },
