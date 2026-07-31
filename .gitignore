@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.vite/
+
+# Leftover prototyping assets (tileset/font packs) never referenced by the
+# actual game, which loads exclusively from assets/ai-art/. Left on disk in
+# case they're wanted later, just not worth tracking in history.
+assets/_raw/

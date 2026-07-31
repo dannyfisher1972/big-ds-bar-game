@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Big D's Bar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  /* Neon dive-bar palette — same CSS structure/selectors as this project's
+     gothic-manor sibling, just different color values. --paper/--ink/
+     --ink-soft/--line stay dark and readable so the UI chrome doesn't fight
+     the neon accents. */
+  :root{
+    --paper:#1a1620; --ink:#f0e9f5; --ink-soft:#b8aebe; --line:#3a3242;
+    --neon-pink:#ff2e88; --neon-amber:#e8a33d; --neon-teal:#3ddad7; --danger:#ff5c5c;
+  }
+  html,body{ margin:0; padding:0; background:#000; height:100%; overflow:hidden; font-family: 'Lora', Georgia, serif; }
+  /* touch-action:manipulation is scoped to buttons/dialog (below) rather than
+     set globally here — a global rule disables the browser's native
+     pinch/double-tap zoom entirely, which is exactly the "zoom in on a clue"
+     capability mobile players need on this game's detailed background art. */
+  /* Quick double-taps on these (skip typewriter, close dialog, pick a
+     suspect) need to register as two taps, not get reinterpreted as a
+     browser double-tap-zoom gesture — so they keep the manipulation
+     restriction the rest of the page just gave up. */
+  button, #dialog, .accuse-suspect, .saved-story-row, .suspect-row{ touch-action:manipulation; }
+
+  /* vh is the LARGEST possible viewport in mobile Safari — as if its
+     address bar / bottom toolbar were never shown — so anything sized or
+     positioned off a raw vh figure can end up partly behind that chrome
+     once it's actually on screen (bottom-anchored HUD buttons a few
+     pixels short, clipped by the toolbar). dvh tracks the real, currently
+     visible area instead and updates live as that chrome shows/hides.
+     Repeating each declaration with dvh right after the vh version is a
+     safe progressive enhancement: browsers without dvh support just treat
+     that second line as invalid and keep the vh one; browsers that do
+     support it use the more accurate value. */
+  #app{ position:relative; width:100vw; height:100vh; height:100dvh; display:flex; align-items:center; justify-content:center; background:#0a0908; }
+  #game-container{
+    position:relative; box-shadow:0 0 80px rgba(0,0,0,0.7);
+    /* width, aspect-ratio, and max-height used to fight each other: with
+       width set to a fixed value, the browser derives height from it via
+       aspect-ratio, then clips to max-height without ever shrinking width
+       to match — on a short/landscape phone viewport that stretched the
+       whole game area to roughly 2.16:1 instead of the intended 3:2 (1.5:1),
+       distorting the canvas and making hotspots even harder to hit. Folding
+       the height cap into an equivalent width (94vh * 1.5, since 3:2 means
+       width = height * 1.5) via min() makes width itself the single source
+       of truth, so aspect-ratio always derives a height that already fits. */
+    width:min(94vw, 1120px, 94vh * 1.5); aspect-ratio: 3 / 2;
+    width:min(94vw, 1120px, 94dvh * 1.5);
+  }
+  #game-container canvas{ display:block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+  #hud{ position:absolute; inset:0; pointer-events:none; }
+  #prompt{
+    position:absolute; left:50%; bottom:34px; transform:translateX(-50%);
+    background:rgba(20,18,15,0.85); color:var(--neon-amber); border:1px solid var(--neon-amber);
+    padding:7px 16px; border-radius:2px; font-family:'Lora', Georgia, serif;
+    font-size:16px; letter-spacing:.02em; display:none;
+  }
+  #dialog{
+    position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:min(620px, 92%);
+    background:rgba(12,11,10,0.96); color:var(--ink); padding:20px 24px 16px 24px; margin-bottom:0;
+    display:none; pointer-events:auto; font-family:'Lora', Georgia, serif;
+    font-size:19px; line-height:1.55; border-radius:6px 6px 0 0;
+    border:3px solid var(--line); border-bottom:none;
+    box-shadow: 0 0 0 1px rgba(255,46,136,0.25) inset, 0 -8px 30px rgba(0,0,0,0.5);
+    /* Anchored to the bottom of #game-container, a long answer just grows
+       the box upward — on a short mobile viewport it could push past the
+       container's top edge with no way to scroll back up to the start of
+       the text. max-height + overflow:hidden here (rather than a % height
+       computed off #game-container, whose own height comes from
+       aspect-ratio — a combination Safari can fail to resolve, silently
+       treating the % as unconstrained and leaving the box's real content
+       invisible above the fold) gives this box an unambiguous, definite
+       height that #dialog-scrollarea below can then reliably fill at 100%
+       and scroll within — keeping the × close button fixed in place
+       rather than scrolling away with the text. vh is a fallback for
+       browsers without dvh; dvh (where supported) tracks the actual
+       visible area as Safari's address bar collapses/expands, instead of
+       vh's fixed-at-load value. */
+    max-height:75vh; max-height:75dvh;
+    overflow:hidden; box-sizing:border-box;
+    /* display:flex/column (set alongside style.display='flex' in JS) so
+       #dialog-scrollarea below can use flex:1 + min-height:0 to scroll
+       reliably. A plain max-height:100% on the scrollarea depends on this
+       box having a "definite" height for percentage resolution — but an
+       absolutely-positioned box with only `bottom` set (no `top`) doesn't
+       qualify, so browsers can let the scrollarea grow to its content's
+       full height instead of clamping it, leaving the overflow silently
+       clipped by this box's overflow:hidden with no way to scroll to it.
+       Flexbox's height distribution doesn't depend on that percentage
+       resolution, so it doesn't hit the same failure mode. */
+    display:flex; flex-direction:column;
+  }
+  #dialog::before{
+    content:""; position:absolute; inset:5px; border:1px solid rgba(255,46,136,0.35); border-bottom:none;
+    pointer-events:none; border-radius:4px 4px 0 0;
+  }
+  #dialogCloseBtn{
+    position:absolute; top:8px; right:8px; z-index:2;
+    width:28px; height:28px; border-radius:50%; padding:0;
+    background:rgba(0,0,0,0.55); border:1px solid var(--line); color:var(--ink-soft);
+    font-size:18px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  #dialogCloseBtn:hover{ color:var(--ink); border-color:var(--neon-pink); }
+  #dialog-scrollarea{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding-right:26px; }
+  #dialog b{ color:var(--neon-pink); display:block; font-family:'Playfair Display', Georgia, serif; font-size:19px; font-weight:700; letter-spacing:.01em; margin-bottom:8px; }
+  #dialog .close-hint{ margin-top:12px; font-size:12px; font-family:'Lora', Georgia, serif; color:var(--ink-soft); letter-spacing:.03em; }
+  #dialog-body{ min-height:1.6em; }
+  #dialog-body .cursor{ display:inline-block; width:8px; background:var(--neon-pink); margin-left:2px; animation:blink 0.8s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity:0; } }
+  #dialog-inner{ display:flex; gap:14px; align-items:flex-start; }
+  #dialog-portrait{
+    width:64px; height:64px; flex-shrink:0; border:2px solid var(--line);
+    border-radius:4px; background:#000; display:none; box-shadow:0 0 12px rgba(255,46,136,0.25);
+    object-fit:cover;
+  }
+  #dialog-text{ flex:1; min-width:0; }
+  #dialog-qa{ display:block; }
+  #dialog-questions{ display:none; flex-direction:column; gap:6px; margin-top:12px; }
+  .dialog-question-btn{
+    text-align:left; font-family:'Lora', Georgia, serif; font-size:14px; font-style:italic;
+    background:rgba(255,46,136,0.08); border:1px solid var(--line); color:var(--neon-pink);
+    padding:7px 12px; border-radius:4px; cursor:pointer; transition:background .15s, border-color .15s;
+  }
+  .dialog-question-btn:hover{ background:rgba(255,46,136,0.18); border-color:var(--neon-pink); }
+  /* On a short landscape phone, stacking the answer text above a full list
+     of question buttons (the normal desktop reading order) can demand more
+     vertical space than the viewport has at all, even with the scroll area
+     above. Putting the questions in a narrow left column and the answer in
+     a boxed, wider right column instead caps the height needed at whichever
+     of the two is taller, not their sum. `order` (not DOM order) does the
+     rearranging, so the underlying markup/reading order stays the same for
+     desktop and screen readers. */
+  @media (max-height:480px){
+    #dialog.has-questions #dialog-qa{ display:flex; flex-direction:row; align-items:flex-start; gap:10px; }
+    #dialog.has-questions #dialog-questions{
+      order:1; flex:0 0 40%; margin-top:0;
+    }
+    #dialog.has-questions #dialog-body{
+      order:2; flex:1; min-width:0;
+      background:rgba(255,255,255,0.04); border:1px solid var(--line); border-radius:6px; padding:8px 10px;
+    }
+  }
+  .dialog-question-btn.asked{ color:var(--ink-soft); opacity:.6; }
+
+  #titleScreen{
+    position:fixed; inset:0; overflow-y:auto; z-index:20; pointer-events:auto;
+    background:
+      linear-gradient(rgba(8,7,6,0.82), rgba(8,7,6,0.9)),
+      url('assets/ai-art/mainbar.png') center / cover no-repeat;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:56px 20px 24px 20px;
+  }
+  .brief-layout{ display:flex; align-items:flex-start; justify-content:center; gap:22px; max-width:900px; width:100%; }
+  .brief-card{
+    max-width:840px; flex:1 1 600px; min-width:0; background:rgba(14,13,11,0.94); border:1px solid var(--line);
+    border-radius:8px; padding:24px 36px 26px 36px; box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .meet-household-row{ text-align:center; margin:4px 0 14px 0; }
+  @media (max-width:900px){
+    .brief-layout{ flex-direction:column; align-items:stretch; }
+    .brief-card{ max-width:100%; }
+  }
+  @media (max-width:480px){
+    .brief-card{ padding:26px 20px 30px 20px; }
+    .victim-row{ flex-direction:column; align-items:center; text-align:center; gap:14px; }
+  }
+  .brief-eyebrow{ font-family:'Lora', Georgia, serif; font-size:13px; letter-spacing:.18em; color:var(--neon-pink); text-align:center; }
+  #titleScreen h1{ font-family:'Playfair Display', Georgia, serif; font-weight:700; color:var(--ink); font-size:clamp(30px, 6vw, 46px); margin:6px 0 4px 0; letter-spacing:.01em; text-shadow:0 0 18px rgba(255,46,136,0.3); text-align:center; }
+  .brief-subtitle{ color:var(--ink-soft); font-family:'Playfair Display', Georgia, serif; font-style:italic; font-size:17px; text-align:center; margin:0 0 14px 0; }
+  .brief-rule{ border:none; border-top:1px solid var(--line); margin:14px 0; }
+
+  .victim-row{ display:flex; gap:18px; align-items:flex-start; margin-bottom:14px; }
+  .victim-portrait{ width:92px; height:92px; border-radius:6px; border:2px solid var(--neon-amber); object-fit:cover; flex-shrink:0; box-shadow:0 0 14px rgba(232,163,61,0.25); cursor:pointer; transition:box-shadow .15s, transform .15s; }
+  .victim-portrait:hover{ box-shadow:0 0 22px rgba(232,163,61,0.45); transform:scale(1.03); }
+  .victim-info b{ display:block; color:var(--neon-amber); font-family:'Playfair Display', Georgia, serif; font-size:19px; font-weight:700; letter-spacing:.01em; margin-bottom:2px; }
+  .victim-info span{ display:block; color:var(--ink-soft); font-family:'Lora', Georgia, serif; font-size:12px; letter-spacing:.02em; margin-bottom:6px; }
+  .victim-info p{ margin:0; color:var(--ink); font-size:14px; line-height:1.4; font-family:'Lora', Georgia, serif; }
+
+  #titleScreen .brief-text p{ color:var(--ink); font-size:14px; line-height:1.45; margin:0 0 8px 0; font-family:'Lora', Georgia, serif; }
+
+  .howto{ list-style:none; margin:0 0 14px 0; padding:0; }
+  .howto li{ display:flex; gap:12px; align-items:baseline; font-size:14px; color:var(--ink-soft); font-family:'Lora', Georgia, serif; margin-bottom:5px; }
+  .howto li b{ color:var(--neon-pink); flex-shrink:0; font-family:'Lora', Georgia, serif; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+
+  #titleScreen .start-row{ text-align:center; }
+  /* Kept as its own span (rather than folded into the button's single text
+     node) so it can opt out of the button's uppercase/wide-letter-spacing
+     styling below — otherwise "Resume Investigation" and the player's own
+     save name run together into one uppercase phrase that reads as a single,
+     often self-contradictory command (e.g. a never-renamed save is literally
+     called "New Investigation", so unstyled it'd read "RESUME NEW
+     INVESTIGATION"). Quoted, smaller, and normal-case marks it as a label
+     for the save, not part of the action itself. */
+  .start-btn-story-name{
+    display:block; text-transform:none; letter-spacing:.01em; font-size:12px;
+    font-style:italic; color:var(--ink-soft); margin-top:3px;
+  }
+  #resetLink{
+    display:none; margin-top:10px; text-align:center; font-family:'Lora', Georgia, serif;
+    font-size:11px; color:var(--ink-soft); text-decoration:underline; cursor:pointer; letter-spacing:.02em;
+  }
+  #resetLink:hover{ color:var(--neon-pink); }
+  .random-story-hint{
+    text-align:center; font-family:'Lora', Georgia, serif; font-size:11px;
+    color:var(--ink-soft); letter-spacing:.02em; max-width:320px;
+  }
+  /* Hidden until there's actually a save to branch away from — for a
+     first-time player, "Start a New Investigation" would just be a second,
+     redundant way to do exactly what "Begin the Investigation" already
+     does, since a never-played slot has no existing progress to preserve. */
+  #newInvestigationControls{
+    display:none; flex-direction:column; align-items:center; gap:8px;
+  }
+  .story-controls{
+    margin-top:10px; padding-top:9px; border-top:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  .story-rename-row{ display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; width:100%; }
+  .story-name-input{
+    font-family:'Lora', Georgia, serif; font-size:12px; background:rgba(20,18,15,0.8);
+    border:1px solid var(--line); color:var(--ink); padding:6px 10px; border-radius:3px;
+    min-width:200px; flex:1; max-width:280px;
+  }
+  .story-name-input:focus{ outline:none; border-color:var(--neon-pink); }
+  .story-controls .btn{ font-size:11px; padding:6px 14px; }
+
+  .saved-stories-section{
+    margin-top:12px; padding-top:12px; border-top:1px solid var(--line); width:100%;
+  }
+  .saved-stories-heading{
+    font-family:'Lora', Georgia, serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-soft); text-align:center; margin-bottom:10px;
+  }
+  .saved-stories-list{ display:flex; flex-direction:column; gap:6px; }
+  .version-stamp{
+    margin-top:14px; text-align:center; font-family:'Lora', Georgia, serif;
+    font-size:11px; letter-spacing:.05em; color:var(--ink-soft); opacity:.6;
+  }
+  .saved-story-row{
+    display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:4px;
+    border:1px solid var(--line); background:rgba(20,18,15,0.5);
+  }
+  .saved-story-name{
+    font-family:'Lora', Georgia, serif; font-size:13px; color:var(--ink); flex:1; min-width:0;
+    background:transparent; border:none; border-bottom:1px dashed transparent; cursor:text;
+    text-overflow:ellipsis; overflow:hidden; white-space:nowrap; padding:2px 0;
+  }
+  .saved-story-name:hover, .saved-story-name:focus{ border-bottom-color:var(--ink-soft); outline:none; }
+  .saved-story-meta{
+    font-family:'Lora', Georgia, serif; font-size:11px; color:var(--ink-soft); flex-shrink:0; white-space:nowrap;
+  }
+  .saved-story-row .btn{ font-size:10px; padding:5px 10px; flex-shrink:0; }
+  .saved-story-delete{
+    background:none; border:none; color:var(--ink-soft); font-size:16px; line-height:1; cursor:pointer;
+    padding:2px 6px; flex-shrink:0;
+  }
+  .saved-story-delete:hover{ color:#c96a5a; }
+  #titleScreen button{
+    font-family:'Lora', Georgia, serif; font-size:16px; letter-spacing:.08em; text-transform:uppercase;
+    background:transparent; border:1px solid var(--neon-pink); color:var(--neon-pink); padding:10px 28px;
+    border-radius:3px; cursor:pointer; transition:background .15s, box-shadow .15s;
+  }
+  #titleScreen button:hover{ background:rgba(255,46,136,0.15); box-shadow:0 0 16px rgba(255,46,136,0.35); }
+  #titleScreen.hidden{ display:none; }
+  #titleScreen #titleMuteBtn{
+    position:absolute; top:16px; right:16px; z-index:1; white-space:nowrap;
+    font-family:'Lora', Georgia, serif; font-size:13px; letter-spacing:.03em; text-transform:none;
+    background:rgba(20,18,15,0.8); border:1px solid var(--line); color:var(--ink-soft);
+    padding:7px 14px; border-radius:3px; cursor:pointer;
+  }
+  #titleMuteBtn:hover{ border-color:var(--neon-pink); color:var(--neon-pink); }
+
+  .person-modal{
+    position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:rgba(6,5,4,0.88); padding:30px;
+  }
+  .person-modal.open{ display:flex; }
+  .victim-modal-card{
+    position:relative; display:flex; gap:30px; max-width:820px; width:100%;
+    background:rgba(18,16,14,0.96); border:1px solid var(--line); border-radius:10px;
+    padding:34px; box-shadow:0 24px 70px rgba(0,0,0,0.6);
+  }
+  .victim-modal-card .victim-modal-photo{ flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .victim-modal-photo a{ display:block; text-decoration:none; }
+  .victim-modal-card img{ width:320px; height:auto; display:block; border-radius:8px; border:2px solid var(--neon-amber); box-shadow:0 0 20px rgba(232,163,61,0.3); }
+  .victim-modal-text b{ display:block; font-family:'Playfair Display', Georgia, serif; font-size:26px; font-weight:700; color:var(--neon-amber); margin-bottom:4px; }
+  .victim-modal-text span{ display:block; font-family:'Lora', Georgia, serif; font-size:13px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:14px; }
+  .victim-modal-text p{ font-family:'Lora', Georgia, serif; font-size:17px; line-height:1.65; color:var(--ink); margin:0 0 13px 0; }
+  .person-modal-close{
+    position:absolute; top:10px; right:14px; background:none; border:none; color:var(--ink-soft);
+    font-size:30px; line-height:1; cursor:pointer; padding:4px 8px;
+  }
+  .person-modal-close:hover{ color:var(--neon-pink); }
+
+  /* --- Meet the Regulars (full-screen cast modal) --- */
+  .cast-modal-card{
+    position:relative; max-width:900px; width:100%; max-height:82vh; overflow-y:auto;
+    background:rgba(18,16,14,0.97); border:1px solid var(--line); border-radius:10px;
+    padding:34px; box-shadow:0 24px 70px rgba(0,0,0,0.6);
+  }
+  .cast-modal-heading{
+    font-family:'Playfair Display', Georgia, serif; color:var(--neon-amber); font-size:24px;
+    margin:0 0 18px 0; text-align:center;
+  }
+  .cast-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(115px, 1fr)); gap:14px; }
+  .cast-card{
+    display:flex; flex-direction:column; align-items:center; gap:8px; padding:14px 8px;
+    border:1px solid var(--line); border-radius:8px; cursor:pointer; background:rgba(255,255,255,0.02);
+    transition:border-color .15s, background .15s, transform .15s;
+  }
+  .cast-card:hover{ border-color:var(--neon-pink); background:rgba(255,46,136,0.08); transform:translateY(-2px); }
+  .cast-card img{ width:88px; height:88px; border-radius:50%; object-fit:cover; border:2px solid var(--neon-amber); }
+  .cast-card-name{ font-family:'Playfair Display', Georgia, serif; font-weight:700; font-size:13px; color:var(--ink); text-align:center; }
+  .cast-card-role{ font-family:'Lora', Georgia, serif; font-size:10px; color:var(--ink-soft); text-align:center; letter-spacing:.02em; }
+  .cast-detail-back{
+    background:none; border:none; color:var(--neon-pink); font-family:'Lora', Georgia, serif;
+    font-size:13px; letter-spacing:.02em; cursor:pointer; padding:0 0 18px 0; display:block;
+  }
+  .cast-detail-back:hover{ text-decoration:underline; }
+  .cast-detail-card{ display:flex; gap:26px; align-items:flex-start; }
+  .cast-detail-card img{
+    width:200px; height:200px; object-fit:cover; border-radius:8px; border:2px solid var(--neon-amber);
+    box-shadow:0 0 20px rgba(232,163,61,0.3); flex-shrink:0;
+  }
+  @media (max-width:640px){
+    .cast-detail-card{ flex-direction:column; align-items:center; text-align:center; }
+    .cast-detail-card img{ width:160px; height:160px; }
+  }
+
+  .btn{
+    font-family:'Lora', Georgia, serif; font-size:15px; letter-spacing:.06em; text-transform:uppercase;
+    background:transparent; border:1px solid var(--neon-pink); color:var(--neon-pink); padding:11px 22px;
+    border-radius:3px; cursor:pointer; transition:background .15s, box-shadow .15s;
+  }
+  .btn:hover{ background:rgba(255,46,136,0.15); box-shadow:0 0 16px rgba(255,46,136,0.35); }
+  .btn.secondary{ border-color:var(--line); color:var(--ink-soft); }
+  .btn.secondary:hover{ border-color:var(--ink-soft); box-shadow:none; background:rgba(255,255,255,0.05); }
+  @media (max-width:640px){ .victim-modal-card{ flex-direction:column; } .victim-modal-card img{ width:100%; height:auto; } }
+
+  #hint, #hint-touch{ position:absolute; top:56px; left:50%; transform:translateX(-50%); color:var(--ink-soft); font-family:'Lora', Georgia, serif; font-size:14px; background:rgba(0,0,0,0.4); padding:6px 14px; border-radius:3px; }
+  /* Same spot, different copy — coarse-pointer devices get a pinch-to-zoom
+     mention instead, since that's not discoverable otherwise. */
+  #hint-touch{ display:none; }
+  @media (hover:none) and (pointer:coarse){
+    #hint{ display:none; }
+    #hint-touch{ display:block; }
+  }
+
+  #room-nav{ position:absolute; top:14px; left:14px; right:14px; display:flex; align-items:center; justify-content:space-between; pointer-events:none; }
+  #room-nav button{
+    pointer-events:auto; font-family:'Lora', Georgia, serif; font-size:13px;
+    background:rgba(20,18,15,0.8); border:1px solid var(--line); color:var(--ink-soft);
+    padding:6px 12px; border-radius:3px; cursor:pointer; max-width:38%;
+  }
+  #room-nav button:hover{ border-color:var(--neon-pink); color:var(--neon-pink); }
+  #room-name{ font-family:'Lora', Georgia, serif; font-size:15px; color:var(--neon-amber); background:rgba(20,18,15,0.8); padding:6px 14px; border-radius:3px; border:1px solid var(--line); }
+
+  #actionButtons{ position:absolute; bottom:14px; right:14px; display:flex; gap:8px; pointer-events:auto; }
+  #actionButtons button{
+    font-family:'Lora', Georgia, serif; font-size:12px;
+    background:rgba(20,18,15,0.8); border:1px solid var(--line); color:var(--ink-soft);
+    padding:7px 11px; border-radius:3px; cursor:pointer; letter-spacing:.03em;
+  }
+  #actionButtons button:hover{ border-color:var(--neon-pink); color:var(--neon-pink); }
+  #actionButtons button:disabled{ opacity:.4; cursor:not-allowed; }
+  #actionButtons button:disabled:hover{ border-color:var(--line); color:var(--ink-soft); }
+
+  #progressBadge{
+    position:absolute; bottom:14px; left:14px; font-family:'Lora', Georgia, serif;
+    font-size:12px; color:var(--ink-soft); background:rgba(20,18,15,0.8); border:1px solid var(--line);
+    padding:6px 12px; border-radius:3px; pointer-events:none;
+  }
+
+  /* --- Zoom controls: a dedicated in-game zoom rather than relying on the
+     browser's own pinch-zoom, which is easy to miss entirely in something
+     that reads as a game rather than a web page. Always visible (not just
+     on touch) since a mouse-wheel/trackpad user benefits just as much from
+     a bigger look at a clue. --- */
+  #zoomControls{
+    position:absolute; left:14px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:6px; pointer-events:auto; z-index:5;
+  }
+  #zoomControls button{
+    width:34px; height:34px; font-size:18px; line-height:1;
+    background:rgba(20,18,15,0.8); border:1px solid var(--line); color:var(--ink-soft);
+    border-radius:3px; cursor:pointer; font-family:'Lora', Georgia, serif;
+  }
+  #zoomControls button:hover{ border-color:var(--neon-pink); color:var(--neon-pink); }
+  #zoomControls button:disabled{ opacity:.35; cursor:not-allowed; }
+  #zoomControls button:disabled:hover{ border-color:var(--line); color:var(--ink-soft); }
+
+  /* --- Quick-retalk sidebar: only people already talked to, minus anyone
+     physically standing in the current room (they're already clickable
+     there). Hidden while a dialog is open so it never overlaps it. --- */
+  #talkedToPanel{
+    position:absolute; right:10px; top:60px; bottom:60px; width:56px;
+    display:none; flex-direction:column; align-items:center; gap:10px;
+    overflow-y:auto; overflow-x:hidden; pointer-events:auto; z-index:5;
+  }
+  #talkedToPanel::-webkit-scrollbar{ width:4px; }
+  #talkedToPanel::-webkit-scrollbar-thumb{ background:var(--line); border-radius:2px; }
+  .retalk-btn{
+    flex:none; width:48px; height:48px; border-radius:50%; padding:0;
+    border:2px solid var(--line); background:rgba(20,18,15,0.85); cursor:pointer;
+    overflow:hidden; transition:border-color .15s, transform .15s;
+  }
+  .retalk-btn:hover{ border-color:var(--neon-pink); transform:scale(1.06); }
+  .retalk-btn img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .retalk-btn .retalk-initial{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    color:var(--neon-amber); font-family:'Playfair Display', Georgia, serif; font-weight:700; font-size:18px;
+  }
+  /* #room-nav, #talkedToPanel, etc. are all positioned with fixed pixel
+     offsets sized for a roomy desktop-scale #game-container. On a short
+     landscape phone the container itself shrinks to a fraction of that, so
+     those same fixed offsets eat up proportionally much more of it — a
+     56px-wide, top:60px retalk panel can end up close enough to a top:14px
+     nav row to visually overlap it. Shrinking both and giving the retalk
+     panel more clearance fixes that without changing anything on desktop. */
+  @media (max-height:480px){
+    #room-nav{ top:6px; left:8px; right:8px; }
+    #room-nav button{ font-size:11px; padding:4px 8px; }
+    #room-name{ font-size:12px; padding:4px 10px; }
+    #talkedToPanel{ top:40px; bottom:44px; right:6px; width:38px; gap:6px; }
+    .retalk-btn{ width:34px; height:34px; }
+    .retalk-btn .retalk-initial{ font-size:14px; }
+    /* Same fixed-offset squeeze applies to the bottom-right action row and
+       the progress badge — shrinking them leaves more margin against the
+       bottom edge, which mobile Safari's own collapsing toolbar chrome can
+       eat into (see #app/#game-container's dvh notes above). */
+    #actionButtons{ bottom:8px; right:8px; gap:5px; }
+    #actionButtons button{ font-size:10px; padding:5px 8px; }
+    #progressBadge{ bottom:8px; left:8px; font-size:10px; padding:4px 8px; }
+  }
+
+  /* --- Notebook --- */
+  .notebook-card{
+    position:relative; max-width:960px; width:100%; max-height:82vh; overflow-y:auto;
+    background:rgba(18,16,14,0.97); border:1px solid var(--line); border-radius:10px;
+    padding:34px; box-shadow:0 24px 70px rgba(0,0,0,0.6);
+  }
+  .notebook-card h2{ font-family:'Playfair Display', Georgia, serif; color:var(--neon-amber); font-size:24px; margin:0 0 4px 0; text-align:center; }
+  .notebook-columns{ display:flex; gap:30px; margin-top:20px; }
+  .notebook-col{ flex:1; min-width:0; }
+  .notebook-col h3{ font-family:'Lora', Georgia, serif; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--neon-pink); border-bottom:1px solid var(--line); padding-bottom:8px; margin:0 0 12px 0; }
+  .notebook-room-group{ margin-bottom:20px; }
+  .notebook-room-heading{
+    font-family:'Lora', Georgia, serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--neon-amber); margin:0 0 8px 0; opacity:.85;
+  }
+  .notebook-entry{ margin-bottom:16px; }
+  .notebook-entry-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .notebook-entry b{ display:block; font-family:'Playfair Display', Georgia, serif; color:var(--ink); font-size:16px; margin-bottom:2px; }
+  .notebook-entry span{ display:block; font-family:'Lora', Georgia, serif; font-size:10px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:4px; }
+  .notebook-entry p{ margin:0; font-family:'Lora', Georgia, serif; font-size:15px; line-height:1.55; color:var(--ink-soft); }
+  .notebook-entry .notebook-qa{ margin:8px 0 0 12px; padding-left:10px; border-left:2px solid var(--line); }
+  .notebook-entry .notebook-qa em{ color:var(--neon-pink); font-style:italic; }
+  .notebook-empty{ font-family:'Lora', Georgia, serif; font-style:italic; color:var(--ink-soft); font-size:14px; }
+  .notebook-tags{ display:flex; gap:4px; flex-wrap:wrap; margin-bottom:4px; }
+  .item-tag{
+    display:inline-block; font-family:'Lora', Georgia, serif; font-size:9px; letter-spacing:.05em;
+    color:var(--neon-amber); border:1px solid rgba(232,163,61,0.4); border-radius:3px; padding:2px 6px;
+    text-transform:uppercase; vertical-align:middle;
+  }
+  .implicates-tag{
+    display:inline-block; font-family:'Lora', Georgia, serif; font-size:9px; letter-spacing:.03em;
+    color:var(--neon-pink); border:1px solid rgba(255,46,136,0.4); border-radius:3px; padding:2px 6px;
+    vertical-align:middle;
+  }
+
+  .case-file-section{ margin-bottom:22px; }
+  .case-file-section:last-child{ margin-bottom:0; }
+  .case-file-section h3{ font-family:'Lora', Georgia, serif; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--neon-pink); border-bottom:1px solid var(--line); padding-bottom:8px; margin:0 0 12px 0; }
+  .case-file-section p{ font-family:'Lora', Georgia, serif; font-size:15px; line-height:1.55; color:var(--ink); margin:0 0 10px 0; }
+  .case-file-section p:last-child{ margin-bottom:0; }
+  #caseFileModal .victim-row{ margin-bottom:0; }
+  #caseFileModal .victim-portrait{ width:120px; height:120px; }
+  .dead-end-tag{
+    display:inline-block; font-family:'Lora', Georgia, serif; font-size:9px; letter-spacing:.05em;
+    color:var(--ink-soft); border:1px solid var(--line); border-radius:3px; padding:2px 6px; margin-left:6px;
+    text-transform:uppercase; vertical-align:middle;
+  }
+  .alibi-break-tag{
+    display:inline-block; font-family:'Lora', Georgia, serif; font-size:9px; letter-spacing:.05em;
+    color:var(--danger); border:1px solid rgba(255,92,92,0.5); border-radius:3px; padding:2px 6px;
+    text-transform:uppercase; vertical-align:middle;
+  }
+
+  .notebook-view-toggle{ display:flex; gap:8px; justify-content:center; margin:14px 0 4px 0; }
+  .view-toggle-btn{
+    font-family:'Lora', Georgia, serif; font-size:12px; letter-spacing:.04em; text-transform:uppercase;
+    background:transparent; border:1px solid var(--line); color:var(--ink-soft); padding:6px 16px;
+    border-radius:3px; cursor:pointer;
+  }
+  .view-toggle-btn.active{ border-color:var(--neon-pink); color:var(--neon-pink); }
+
+  .board-hint{ font-family:'Lora', Georgia, serif; font-style:italic; font-size:13px; color:var(--ink-soft); text-align:center; margin:10px 0 16px 0; }
+
+  .notebook-timeline{ margin-top:6px; }
+  #timelineList{ position:relative; padding-left:2px; }
+  #timelineList::before{
+    content:""; position:absolute; left:62px; top:6px; bottom:6px; width:2px; background:var(--line);
+  }
+  .timeline-entry{ position:relative; display:flex; gap:18px; padding:0 0 22px 0; align-items:flex-start; }
+  .timeline-entry:last-child{ padding-bottom:0; }
+  .timeline-time{
+    flex:0 0 50px; text-align:right; font-family:'Lora', Georgia, serif; font-size:12px;
+    color:var(--neon-amber); padding-top:2px;
+  }
+  .timeline-dot{
+    position:absolute; left:58px; top:4px; width:10px; height:10px; border-radius:50%;
+    background:var(--neon-pink); border:2px solid var(--paper); box-shadow:0 0 0 1px var(--neon-pink);
+  }
+  .timeline-text{ flex:1; font-family:'Lora', Georgia, serif; font-size:15px; line-height:1.5; color:var(--ink); padding-left:20px; }
+
+  .contradictions-section{ margin-top:26px; padding-top:18px; border-top:1px solid var(--line); }
+  .contradictions-section h3{
+    font-family:'Lora', Georgia, serif; font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--danger); margin:0 0 12px 0;
+  }
+  .contradiction-entry{
+    display:flex; gap:10px; align-items:flex-start; margin-bottom:12px; padding:10px 12px;
+    background:rgba(255,92,92,0.08); border:1px solid rgba(255,92,92,0.3); border-radius:4px;
+  }
+  .contradiction-entry .contradiction-icon{ flex:none; font-size:15px; line-height:1.5; }
+  .contradiction-entry .contradiction-body{ font-family:'Lora', Georgia, serif; font-size:14px; line-height:1.5; color:var(--ink); }
+  .contradiction-entry .contradiction-body em{ color:var(--danger); font-style:normal; }
+  .board-wrap{ position:relative; width:100%; min-height:480px; }
+  .board-wrap svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .board-suspect{
+    position:absolute; display:flex; flex-direction:column; align-items:center; gap:5px; width:74px;
+    transform:translate(-50%, -50%);
+  }
+  .board-suspect img{ width:58px; height:58px; border-radius:50%; object-fit:cover; border:2px solid var(--neon-amber); background:#141310; }
+  .board-suspect span{ font-family:'Playfair Display', Georgia, serif; font-size:11px; color:var(--ink); text-align:center; line-height:1.2; }
+  .board-evidence{
+    position:absolute; transform:translate(-50%, -50%); width:118px; background:rgba(20,18,15,0.92);
+    border:1px solid var(--line); border-radius:5px; padding:6px 8px; font-family:'Lora', Georgia, serif;
+    font-size:11px; color:var(--ink-soft); text-align:center; line-height:1.3;
+  }
+
+  .notebook-achievements{ margin-top:26px; border-top:1px solid var(--line); padding-top:18px; }
+  .notebook-achievements h3{ font-family:'Lora', Georgia, serif; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--neon-pink); margin:0 0 12px 0; }
+  .achievements-row{ display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:10px; }
+  .achievement-badge{ display:flex; gap:10px; align-items:center; border:1px solid var(--line); border-radius:6px; padding:8px 10px; opacity:0.4; }
+  .achievement-badge.unlocked{ opacity:1; border-color:rgba(232,163,61,0.5); }
+  .achievement-badge .ach-icon{ font-size:20px; flex-shrink:0; }
+  .achievement-badge b{ display:block; font-family:'Playfair Display', Georgia, serif; font-size:13px; color:var(--ink); }
+  .achievement-badge span{ display:block; font-family:'Lora', Georgia, serif; font-size:11px; color:var(--ink-soft); line-height:1.3; }
+
+  #achievementToast{
+    position:absolute; top:14px; left:50%; transform:translateX(-50%) translateY(-20px); z-index:70;
+    background:rgba(20,18,15,0.95); border:1px solid var(--neon-amber); border-radius:6px; padding:12px 20px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s;
+    text-align:center; max-width:80%;
+  }
+  #achievementToast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #achievementToast b{ display:block; font-family:'Playfair Display', Georgia, serif; color:var(--neon-amber); font-size:14px; }
+  #achievementToast span{ display:block; font-family:'Lora', Georgia, serif; color:var(--ink-soft); font-size:12px; margin-top:2px; }
+  @media (max-width:640px){ .notebook-columns{ flex-direction:column; gap:24px; } }
+
+  /* --- Accusation --- */
+  .accuse-card{
+    position:relative; max-width:760px; width:100%; max-height:82vh; overflow-y:auto;
+    background:rgba(18,16,14,0.97); border:1px solid var(--line); border-radius:10px;
+    padding:34px; box-shadow:0 24px 70px rgba(0,0,0,0.6);
+  }
+  .accuse-card h2{ font-family:'Playfair Display', Georgia, serif; color:var(--neon-amber); font-size:24px; margin:0 0 6px 0; text-align:center; }
+  .accuse-card .accuse-sub{ text-align:center; color:var(--ink-soft); font-family:'Lora', Georgia, serif; font-style:italic; margin:0 0 22px 0; }
+  .accuse-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:12px; margin-bottom:24px; }
+  .accuse-suspect{
+    display:flex; flex-direction:column; align-items:center; gap:8px; padding:12px 8px; border-radius:8px;
+    border:2px solid var(--line); cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  .accuse-suspect:hover{ border-color:rgba(255,46,136,0.5); }
+  .accuse-suspect.selected{ border-color:var(--neon-pink); background:rgba(255,46,136,0.12); }
+  .accuse-suspect img{ width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--neon-amber); }
+  .accuse-suspect .accuse-icon{
+    width:64px; height:64px; border-radius:50%; border:2px solid var(--neon-amber);
+    display:flex; align-items:center; justify-content:center; font-size:26px;
+    background:rgba(255,46,136,0.08); color:var(--neon-amber);
+  }
+  .accuse-suspect span{ font-family:'Playfair Display', Georgia, serif; font-size:14px; color:var(--ink); text-align:center; }
+  .accuse-confirm-row{ text-align:center; }
+  .accuse-confirm-row button:disabled{ opacity:.4; cursor:not-allowed; }
+
+  .accuse-warning{
+    text-align:center; font-family:'Lora', Georgia, serif; font-style:italic; font-size:14px;
+    color:var(--danger); margin:0 0 16px 0;
+  }
+
+  /* --- End screen --- */
+  .end-card{
+    position:relative; max-width:640px; width:100%; max-height:82vh; overflow-y:auto;
+    background:rgba(18,16,14,0.97); border:1px solid var(--line); border-radius:10px;
+    padding:38px; box-shadow:0 24px 70px rgba(0,0,0,0.6); text-align:center;
+  }
+  .end-card h2{ font-family:'Playfair Display', Georgia, serif; font-size:30px; margin:0 0 6px 0; }
+  .end-card.win h2{ color:var(--neon-teal); }
+  .end-card.lose h2{ color:var(--danger); }
+  .end-card .end-sub{ font-family:'Lora', Georgia, serif; font-style:italic; color:var(--ink-soft); margin:0 0 22px 0; }
+  .end-card p{ font-family:'Lora', Georgia, serif; font-size:16px; line-height:1.6; color:var(--ink); text-align:left; margin:0 0 13px 0; }
+  .end-card .end-strength-note{ color:var(--ink-soft); font-size:14px; border-top:1px solid var(--line); padding-top:12px; margin-top:6px; }
+  .end-card .end-epilogue-intro{ color:var(--neon-amber); font-size:15px; margin-bottom:16px; }
+  .end-actions{ margin-top:26px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+
+  /* --- Puzzle keypad --- */
+  .puzzle-modal{
+    position:absolute; inset:0; z-index:65; display:none; align-items:center; justify-content:center;
+    background:rgba(6,5,4,0.88); padding:30px;
+  }
+  .puzzle-card{
+    max-width:380px; width:100%; background:rgba(18,16,14,0.97); border:1px solid var(--line);
+    border-radius:10px; padding:30px; box-shadow:0 24px 70px rgba(0,0,0,0.6); text-align:center;
+  }
+  .puzzle-card h2{ font-family:'Playfair Display', Georgia, serif; color:var(--neon-amber); font-size:22px; margin:0 0 12px 0; }
+  .puzzle-hint{ font-family:'Lora', Georgia, serif; font-size:14px; color:var(--ink-soft); margin:0 0 18px 0; line-height:1.4; }
+  .puzzle-input{
+    width:140px; text-align:center; font-family:'Lora', Georgia, serif; font-size:28px; letter-spacing:.3em;
+    background:rgba(0,0,0,0.4); border:1px solid var(--line); color:var(--ink); padding:10px 8px;
+    border-radius:4px; margin-bottom:8px;
+  }
+  .puzzle-input:focus{ outline:none; border-color:var(--neon-pink); }
+  .puzzle-feedback{ min-height:1.4em; font-family:'Lora', Georgia, serif; font-size:13px; color:var(--danger); font-style:italic; margin:4px 0 6px 0; }
+  .puzzle-actions{ display:flex; gap:12px; justify-content:center; margin-top:10px; }
+
+  /* Rotate-to-landscape hint. The bar's rooms are a wide 3:2 view, so on a
+     phone held upright they shrink to a letterboxed strip. Nudge touch users
+     to turn sideways. Hidden by default; only shown on coarse-pointer (touch)
+     devices in portrait — never on desktop, and it vanishes once rotated. */
+  #rotate-hint{ display:none; }
+  @media (hover:none) and (pointer:coarse) and (orientation:portrait){
+    #rotate-hint{
+      display:flex; position:fixed; inset:0; z-index:9999;
+      flex-direction:column; align-items:center; justify-content:center; gap:22px;
+      background:#0a0908; color:var(--ink); text-align:center; padding:32px;
+      font-family:'Lora', Georgia, serif;
+    }
+    #rotate-hint .rotate-glyph{
+      font-size:64px; line-height:1; color:var(--neon-pink);
+      animation:rotate-tip 2.4s ease-in-out infinite;
+    }
+    #rotate-hint h2{
+      margin:0; font-family:'Playfair Display', Georgia, serif; font-weight:700;
+      font-size:26px; letter-spacing:.01em; color:var(--neon-amber);
+    }
+    #rotate-hint p{ margin:0; font-size:16px; line-height:1.5; color:var(--ink-soft); max-width:16em; }
+  }
+  @keyframes rotate-tip{
+    0%,55%{ transform:rotate(0deg); } 75%,100%{ transform:rotate(-90deg); }
+  }
+</style>
+</head>
+<body>
+<div id="rotate-hint" aria-hidden="true">
+  <div class="rotate-glyph">📱</div>
+  <h2>Turn your device sideways</h2>
+  <p>Big D's Bar plays best in landscape.</p>
+</div>
+<div id="app">
+  <div id="game-container">
+    <div id="hud">
+      <div id="achievementToast"></div>
+      <div id="room-nav">
+        <button id="room-prev"></button>
+        <span id="room-name"></span>
+        <button id="room-next"></button>
+      </div>
+      <div id="hint">Click a glowing object or a person to interact</div>
+      <div id="hint-touch">Tap a glowing object or person — use + to zoom in for a closer look</div>
+      <div id="zoomControls">
+        <button id="zoomInBtn" aria-label="Zoom in" title="Zoom in">+</button>
+        <button id="zoomOutBtn" aria-label="Zoom out" title="Zoom out" disabled>−</button>
+      </div>
+      <div id="actionButtons">
+        <button id="caseFileBtn">🗎 Case File</button>
+        <button id="notebookBtn">📓 Notebook</button>
+        <button id="accuseBtn">⚖ Accuse</button>
+        <button id="muteBtn">🔊</button>
+      </div>
+      <div id="progressBadge"></div>
+      <div id="talkedToPanel"></div>
+      <div id="prompt"></div>
+      <div id="dialog">
+        <button id="dialogCloseBtn" aria-label="Close" title="Close">×</button>
+        <div id="dialog-scrollarea">
+          <div id="dialog-inner">
+            <img id="dialog-portrait" alt="">
+            <div id="dialog-text">
+              <b id="dialog-title"></b>
+              <div id="dialog-qa">
+                <div id="dialog-body"></div>
+                <div id="dialog-questions"></div>
+              </div>
+              <div class="close-hint">Press Space or click to continue · × to close</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="titleScreen">
+      <button id="titleMuteBtn" aria-label="Toggle sound">🔊 Sound</button>
+      <div class="brief-layout">
+        <div class="brief-card">
+          <div class="brief-eyebrow">CASE FILE No. BD-0219</div>
+          <h1>Big D's Bar</h1>
+          <div class="brief-subtitle">The 18th Anniversary</div>
+
+          <div class="victim-row">
+            <img class="victim-portrait" id="victimPortrait" src="assets/ai-art/bigd.png" alt="Derek &quot;Big D&quot; Delgado — click to enlarge">
+            <div class="victim-info">
+              <b>Derek "Big D" Delgado, 52</b>
+              <span>Owner, Big D's Bar</span>
+              <p>Charismatic behind the bar, controlling everywhere else. Derek built Big D's into the only place in town worth showing up to, and spent eighteen years making sure everyone around him knew exactly what they owed him.</p>
+            </div>
+          </div>
+
+          <div class="brief-text">
+            <p>Tonight was Big D's 18th anniversary party — free drinks, a packed house, karaoke till close. It was supposed to be his biggest night of the year.</p>
+            <p>Around 2 AM, after the last stragglers cleared out, Derek was found slumped in his back office. The bar sits well outside town limits — the county deputy covering this stretch is a thirty-to-forty-five-minute drive out, and won't arrive till morning.</p>
+            <p>Everyone who was still here when it happened has a few hours before that changes. At least seven people who were in the bar tonight had a reason to want him gone.</p>
+          </div>
+
+          <div class="meet-household-row">
+            <button id="meetHouseholdBtn" class="btn secondary">🎭 Meet the Regulars</button>
+          </div>
+
+          <hr class="brief-rule">
+
+          <ul class="howto">
+            <li><b>Click</b> a glowing object to examine it.</li>
+            <li><b>Click</b> a person to talk to them.</li>
+            <li><b>Use the arrows</b> at the top corners to move between parts of the bar.</li>
+            <li><b>Go back and ask again</b> — new questions open up for people you've already met once you've learned something elsewhere. Their portrait stays on the side panel so you don't have to walk back to find them.</li>
+          </ul>
+
+          <div class="start-row">
+            <button id="startBtn">
+              <span id="startBtnVerb">Begin the Investigation</span>
+              <span id="startBtnStoryName" class="start-btn-story-name"></span>
+            </button>
+          </div>
+          <div id="resetLink">Start this investigation over (clears its saved progress)</div>
+
+          <div class="story-controls">
+            <div class="story-rename-row">
+              <input id="storyNameInput" type="text" class="story-name-input" maxlength="60" placeholder="Name this investigation">
+              <button id="renameStoryBtn" class="btn secondary">Rename</button>
+            </div>
+            <div id="newInvestigationControls">
+              <button id="randomStoryBtn" class="btn secondary">🎲 Start a New Investigation</button>
+              <div class="random-story-hint">Begins a case with a different culprit — anything you've already found stays saved.</div>
+            </div>
+          </div>
+
+          <div id="savedStoriesSection" class="saved-stories-section" style="display:none;">
+            <div class="saved-stories-heading">Continue a Saved Investigation</div>
+            <div id="savedStoriesList" class="saved-stories-list"></div>
+          </div>
+
+          <div id="versionStamp" class="version-stamp">Beta 1.0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="caseFileModal" class="person-modal">
+      <div class="notebook-card">
+        <button class="person-modal-close" data-close aria-label="Close">&times;</button>
+        <h2>The Case</h2>
+
+        <div class="case-file-section">
+          <h3>What Happened</h3>
+          <p>Tonight was Big D's 18th anniversary party — free drinks, a packed house, karaoke till close. It was supposed to be his biggest night of the year.</p>
+          <p>Around 2 AM, after the last stragglers cleared out, Derek was found slumped in his back office. The bar sits well outside town limits — the county deputy covering this stretch is a thirty-to-forty-five-minute drive out, and won't arrive till morning.</p>
+          <p>Everyone who was still here when it happened has a few hours before that changes. At least seven people who were in the bar tonight had a reason to want him gone.</p>
+        </div>
+
+        <div class="case-file-section">
+          <h3>The Victim</h3>
+          <div class="victim-row">
+            <img class="victim-portrait" src="assets/ai-art/bigd.png" alt="Derek &quot;Big D&quot; Delgado">
+            <div class="victim-info">
+              <b>Derek "Big D" Delgado, 52</b>
+              <span>Owner, Big D's Bar</span>
+              <p>Derek built Big D's Bar from nothing into the only place in town worth showing up to on a Friday, over eighteen years. Charismatic behind the bar and controlling everywhere else, he kept careful track of exactly what everyone around him owed — in money, in loyalty, or in silence.</p>
+              <p>Tonight was supposed to be a celebration. Instead, at least seven of the people still in the building when the party wound down had their own reasons to want him gone — a bartender he wouldn't leave alone, a bouncer who'd just learned the bar was being sold out from under him, a loan shark he owed and kept avoiding, an ex-wife still owed her share, a DJ who'd seen too much, his oldest friend, and a waitress he fired in front of everybody hours before he died.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="victimModal" class="person-modal">
+      <div class="victim-modal-card">
+        <button class="person-modal-close" data-close aria-label="Close">&times;</button>
+        <div class="victim-modal-photo">
+          <img id="victimModalImg" src="assets/ai-art/bigd.png" alt="Derek &quot;Big D&quot; Delgado">
+        </div>
+        <div class="victim-modal-text">
+          <b>Derek "Big D" Delgado, 52</b>
+          <span>Owner, Big D's Bar</span>
+          <p>Derek built Big D's Bar from nothing into the only place in town worth showing up to on a Friday, over eighteen years. Charismatic behind the bar and controlling everywhere else, he kept careful track of exactly what everyone around him owed — in money, in loyalty, or in silence.</p>
+          <p>Tonight was supposed to be a celebration. Instead, at least seven of the people still in the building when the party wound down had their own reasons to want him gone — a bartender he wouldn't leave alone, a bouncer who'd just learned the bar was being sold out from under him, a loan shark he owed and kept avoiding, an ex-wife still owed her share, a DJ who'd seen too much, his oldest friend, and a waitress he fired in front of everybody hours before he died.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="castModal" class="person-modal">
+      <div class="cast-modal-card">
+        <button class="person-modal-close" data-close aria-label="Close">&times;</button>
+        <div id="castGridView">
+          <h2 class="cast-modal-heading">The Regulars</h2>
+          <div id="castGrid" class="cast-grid"></div>
+        </div>
+        <div id="castDetailView" style="display:none;">
+          <button id="castDetailBack" class="cast-detail-back">← Back to the Regulars</button>
+          <div class="cast-detail-card">
+            <img id="castDetailImg" src="" alt="">
+            <div class="victim-modal-text">
+              <b id="castDetailName"></b>
+              <span id="castDetailRole"></span>
+              <p id="castDetailBio"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="notebookModal" class="person-modal">
+      <div class="notebook-card">
+        <button class="person-modal-close" data-close aria-label="Close">&times;</button>
+        <h2>Case Notebook</h2>
+        <div class="notebook-view-toggle">
+          <button id="notebookListBtn" class="view-toggle-btn active">List</button>
+          <button id="notebookTimelineBtn" class="view-toggle-btn">Timeline</button>
+          <button id="notebookBoardBtn" class="view-toggle-btn">Board</button>
+        </div>
+
+        <div id="notebookListView" class="notebook-columns">
+          <div class="notebook-col">
+            <h3>Evidence Found</h3>
+            <div id="notebookEvidence"></div>
+          </div>
+          <div class="notebook-col">
+            <h3>People Interviewed</h3>
+            <div id="notebookPeople"></div>
+          </div>
+        </div>
+
+        <div id="notebookTimelineView" class="notebook-timeline" style="display:none;">
+          <p class="board-hint">Fills in as you find clues and ask the right people the right questions — nothing here you haven't learned yourself.</p>
+          <div id="timelineList"></div>
+          <div id="contradictionsSection" class="contradictions-section" style="display:none;">
+            <h3>Contradictions Noticed</h3>
+            <div id="contradictionsList"></div>
+          </div>
+        </div>
+
+        <div id="notebookBoardView" class="notebook-board" style="display:none;">
+          <p class="board-hint">Lines connect found evidence to the suspect it points at, colored to match their portrait ring. Dashed grey lines are dead ends.</p>
+          <div id="boardWrap" class="board-wrap"></div>
+        </div>
+
+        <div class="notebook-achievements">
+          <h3>Achievements</h3>
+          <div id="achievementsRow" class="achievements-row"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="accuseModal" class="person-modal">
+      <div class="accuse-card">
+        <button class="person-modal-close" data-close aria-label="Close">&times;</button>
+        <h2>Name the Killer</h2>
+        <p class="accuse-sub" id="accuseSub">Choose carefully — you only get one accusation.</p>
+        <div id="accuseGrid" class="accuse-grid"></div>
+        <p id="accuseWarning" class="accuse-warning" style="display:none;"></p>
+        <div class="accuse-confirm-row">
+          <button id="accuseConfirmBtn" class="btn" disabled>Confirm Accusation</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="endModal" class="person-modal">
+      <div id="endCard" class="end-card">
+        <h2 id="endTitle"></h2>
+        <p class="end-sub" id="endSub"></p>
+        <div id="endExplanation"></div>
+        <div class="end-actions">
+          <button id="endKeepBtn" class="btn secondary">Keep Investigating</button>
+          <button id="endNewBtn" class="btn">New Investigation</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="puzzleModal" class="puzzle-modal">
+      <div class="puzzle-card">
+        <h2>Locked</h2>
+        <p id="puzzleHint" class="puzzle-hint"></p>
+        <input id="puzzleInput" class="puzzle-input" type="text" inputmode="numeric" maxlength="4" placeholder="- - - -" autocomplete="off">
+        <p id="puzzleFeedback" class="puzzle-feedback"></p>
+        <div class="puzzle-actions">
+          <button id="puzzleCancelBtn" class="btn secondary">Cancel</button>
+          <button id="puzzleSubmitBtn" class="btn">Try It</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
