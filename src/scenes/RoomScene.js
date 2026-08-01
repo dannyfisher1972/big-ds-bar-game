@@ -730,6 +730,18 @@ export default class RoomScene extends Phaser.Scene {
   // rather than a 16x16 cartoon RPG sprite that would clash badly against a
   // photorealistic background. Falls back to a plain initial-letter badge if
   // that NPC's portrait file didn't load.
+  // An invisible interactive rectangle roughly covering an NPC's torso in
+  // the room's painted-in art, built from rooms.js's hitbox fractions
+  // (x0,y0,x1,y1 of the whole screen). Lets hover/click work anywhere on
+  // their body instead of requiring the small marker dot to be hit exactly.
+  addNpcHitbox(cfg) {
+    const a = this.pointToScene(cfg.hitbox.x0, cfg.hitbox.y0);
+    const b = this.pointToScene(cfg.hitbox.x1, cfg.hitbox.y1);
+    const rect = this.add.rectangle((a.x + b.x) / 2, (a.y + b.y) / 2, b.x - a.x, b.y - a.y, 0xffffff, 0);
+    rect.setInteractive({ useHandCursor: true });
+    return rect;
+  }
+
   addNPC(cfg) {
     const p = this.pointToScene(cfg.fx, cfg.fy);
     const npcKey = cfg.name.replace(/\s+/g, '-').toLowerCase();
@@ -749,13 +761,6 @@ export default class RoomScene extends Phaser.Scene {
       npc.setScale(MARKER_SCALE);
       npc.setAlpha(0.85);
       this.tweens.add({ targets: npc, scale: { from: MARKER_SCALE, to: MARKER_SCALE_PEAK }, alpha: { from: 0.85, to: 0.5 }, duration: 900, yoyo: true, repeat: -1 });
-      // Baked-into-scene NPCs have no badge or cutout of their own to catch
-      // the eye, so hovering dims the rest of the painted-in room and leaves
-      // just this person lit — a stand-in for "highlight their silhouette"
-      // that doesn't require a separate cutout of each person.
-      const spotP = this.pointToScene(cfg.fx, cfg.fy);
-      npc.on('pointerover', () => this.showSpotlight(spotP.x, spotP.y));
-      npc.on('pointerout', () => this.hideSpotlight());
     } else {
       // Full-body art stands taller than it is wide, so fx/fy (tuned as the
       // NPC's rough center when they were a small circular badge) is anchored
@@ -779,10 +784,23 @@ export default class RoomScene extends Phaser.Scene {
     npc.npcDisplayName = matched?.displayName || cfg.name;
     this.npcs.push(npc);
 
-    npc.setInteractive({ useHandCursor: true });
-    npc.on('pointerover', () => this.setPrompt('Talk to ' + npc.npcDisplayName));
-    npc.on('pointerout', () => this.setPrompt(null));
-    npc.on('pointerdown', () => {
+    // A baked-into-scene NPC with a defined hitbox gets a separate,
+    // invisible rectangle sized to roughly their torso instead of relying on
+    // the small marker dot for hover/click — the dot stays as a passive
+    // visual cue, but the whole hittable object hosts the actual
+    // interaction, so the mouse only has to be somewhere over their body,
+    // not precisely on a 32px dot, to highlight and talk to them.
+    const hitTarget = (cfg.bakedIntoScene && cfg.hitbox) ? this.addNpcHitbox(cfg) : npc;
+    if (hitTarget === npc) npc.setInteractive({ useHandCursor: true });
+    hitTarget.on('pointerover', () => {
+      this.setPrompt('Talk to ' + npc.npcDisplayName);
+      if (cfg.bakedIntoScene) this.showSpotlight(p.x, p.y);
+    });
+    hitTarget.on('pointerout', () => {
+      this.setPrompt(null);
+      if (cfg.bakedIntoScene) this.hideSpotlight();
+    });
+    hitTarget.on('pointerdown', () => {
       if (this.isDialogOpen()) { this.advanceDialog(); return; }
       this.approachPoint(cfg.fx, cfg.fy);
       this.talkToNPC(npc);

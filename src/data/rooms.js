@@ -116,6 +116,7 @@ export const ROOMS = {
         name: 'Danny "Tiny" Fisher',
         portraitKey: 'portrait-tiny',
         bakedIntoScene: true,
+        hitbox: { x0: 0.35, y0: 0.22, x1: 0.51, y1: 0.96 },
         fx: 0.43,
         fy: 0.42,
         line: '"Ten years I\'ve had this man\'s back. Now there\'s a body in his office and half this bar looking at me like I did it."'
@@ -188,6 +189,7 @@ export const ROOMS = {
         name: 'Nikki Alvarez',
         portraitKey: 'portrait-nikki',
         bakedIntoScene: true,
+        hitbox: { x0: 0.25, y0: 0.05, x1: 0.51, y1: 1 },
         fx: 0.38,
         fy: 0.46,
         line: '"Guess it doesn\'t matter that he fired me anymore, huh. Kind of hard to feel bad about that part tonight."'
@@ -536,6 +538,7 @@ export const ROOMS = {
         name: 'Jade Marlow',
         portraitKey: 'portrait-jade',
         bakedIntoScene: true,
+        hitbox: { x0: 0.15, y0: 0.25, x1: 0.42, y1: 0.85 },
         fx: 0.3,
         fy: 0.5,
         line: '"I found him. I keep waiting for that to stop being the only thing anyone wants to talk to me about tonight."'
@@ -545,6 +548,7 @@ export const ROOMS = {
         name: 'Sonny Vance',
         portraitKey: 'portrait-sonny',
         bakedIntoScene: true,
+        hitbox: { x0: 0.6, y0: 0.28, x1: 0.67, y1: 0.44 },
         fx: 0.62,
         fy: 0.33,
         line: '"Whatever you heard about me and Derek, I didn\'t need him dead. Dead men are terrible at paying what they owe."'
@@ -554,6 +558,7 @@ export const ROOMS = {
         name: 'Marisol Ortiz',
         portraitKey: 'portrait-marisol',
         bakedIntoScene: true,
+        hitbox: { x0: 0.72, y0: 0.25, x1: 0.83, y1: 0.65 },
         fx: 0.76,
         fy: 0.4,
         line: '"Twenty-two years married to that man, and I still heard he was dead from a bartender half my age."'
@@ -563,6 +568,7 @@ export const ROOMS = {
         name: 'DJ Cruz',
         portraitKey: 'portrait-cruz',
         bakedIntoScene: true,
+        hitbox: { x0: 0.9, y0: 0.16, x1: 0.965, y1: 0.4 },
         fx: 0.9,
         fy: 0.27,
         line: '"Somebody\'s going to ask if I\'m broken up about this. I\'d rather talk about literally anything else."'
@@ -572,6 +578,7 @@ export const ROOMS = {
         name: 'Duck Pruitt',
         portraitKey: 'portrait-duck',
         bakedIntoScene: true,
+        hitbox: { x0: 0.545, y0: 0.16, x1: 0.615, y1: 0.3 },
         fx: 0.59,
         fy: 0.2,
         line: '"Forty years I knew that man. Turns out I didn\'t know him at all, not by the end of it."'
@@ -581,6 +588,7 @@ export const ROOMS = {
         name: 'Roz Kessler',
         portraitKey: 'portrait-roz',
         bakedIntoScene: true,
+        hitbox: { x0: 0.85, y0: 0.35, x1: 0.96, y1: 0.58 },
         fx: 0.88,
         fy: 0.4,
         line: '"Well, he\'s not calling anybody\'s kids now, is he. Don\'t look at me like that — I\'m allowed to say it."'
@@ -590,6 +598,7 @@ export const ROOMS = {
         name: 'Dale Bracken',
         portraitKey: 'portrait-dale',
         bakedIntoScene: true,
+        hitbox: { x0: 0.455, y0: 0.24, x1: 0.505, y1: 0.4 },
         fx: 0.5,
         fy: 0.3,
         line: '"Everybody in this room\'s got a story about Derek tonight. Mine\'s just uglier than most of theirs."'
@@ -599,6 +608,7 @@ export const ROOMS = {
         name: 'Skylar Reyes',
         portraitKey: 'portrait-skylar',
         bakedIntoScene: true,
+        hitbox: { x0: 0.51, y0: 0.3, x1: 0.6, y1: 0.7 },
         fx: 0.52,
         fy: 0.4,
         line: '"He humiliated me in front of this whole bar a few hours ago. Forgive me if I\'m not first in line to cry about him."'
