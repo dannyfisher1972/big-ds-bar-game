@@ -30,6 +30,13 @@ const PORTRAITS = {
   'portrait-bigd': 'bigd.png'
 };
 
+// Full-body scene art for NPCs — a taller cutout-style shot standing in for
+// their spot in the room, replacing the circular portrait badge when present
+// (see RoomScene's addNPC). Same missing-file-tolerant loading as PORTRAITS.
+const FULLBODY = {
+  'full-tiny': 'tiny-full.png'
+};
+
 export default class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
 
@@ -41,6 +48,9 @@ export default class BootScene extends Phaser.Scene {
       this.load.image(key, import.meta.env.BASE_URL + 'assets/ai-art/' + file);
     });
     Object.entries(PORTRAITS).forEach(([key, file]) => {
+      this.load.image(key, import.meta.env.BASE_URL + 'assets/ai-art/' + file);
+    });
+    Object.entries(FULLBODY).forEach(([key, file]) => {
       this.load.image(key, import.meta.env.BASE_URL + 'assets/ai-art/' + file);
     });
   }

@@ -583,8 +583,30 @@ export default class RoomScene extends Phaser.Scene {
   addNPC(cfg) {
     const p = this.pointToScene(cfg.fx, cfg.fy);
     const npcKey = cfg.name.replace(/\s+/g, '-').toLowerCase();
-    const texKey = this.ensureCircularBadge(npcKey, cfg.portraitKey, cfg.tint, cfg.name.charAt(0));
+    const hasFullBody = !cfg.bakedIntoScene && cfg.fullKey && this.hasRealAsset(cfg.fullKey);
+    const texKey = cfg.bakedIntoScene
+      ? this.ensureGlowDot()
+      : hasFullBody
+        ? this.ensureFullBodyCutout(npcKey, cfg.fullKey)
+        : this.ensureCircularBadge(npcKey, cfg.portraitKey, cfg.tint, cfg.name.charAt(0));
     const npc = this.add.image(p.x, p.y, texKey);
+    if (cfg.bakedIntoScene) {
+      // Already painted into the room's background art — just a small
+      // tinted click marker, same visual language as an object hotspot,
+      // rather than a badge or cutout on top of art that already has them
+      // standing there.
+      npc.setTint(cfg.tint);
+      npc.setScale(MARKER_SCALE);
+      npc.setAlpha(0.85);
+      this.tweens.add({ targets: npc, scale: { from: MARKER_SCALE, to: MARKER_SCALE_PEAK }, alpha: { from: 0.85, to: 0.5 }, duration: 900, yoyo: true, repeat: -1 });
+    } else {
+      // Full-body art stands taller than it is wide, so fx/fy (tuned as the
+      // NPC's rough center when they were a small circular badge) is anchored
+      // lower in the frame here — most of the figure rises above that point,
+      // with just enough below it to keep feet grounded near the same spot.
+      if (hasFullBody) npc.setOrigin(0.5, 0.62);
+      this.tweens.add({ targets: npc, scale: { from: 1, to: 1.05 }, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
     npc.npcName = cfg.name;
     npc.npcLine = cfg.line;
     npc.npcPortraitKey = cfg.portraitKey;
@@ -597,7 +619,6 @@ export default class RoomScene extends Phaser.Scene {
     // display name that differs from their internal identifier.
     npc.npcDisplayName = matched?.displayName || cfg.name;
     this.npcs.push(npc);
-    this.tweens.add({ targets: npc, scale: { from: 1, to: 1.05 }, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     npc.setInteractive({ useHandCursor: true });
     npc.on('pointerover', () => this.setPrompt('Talk to ' + npc.npcDisplayName));
@@ -607,6 +628,50 @@ export default class RoomScene extends Phaser.Scene {
       this.talkToNPC(npc);
     });
     return npc;
+  }
+
+  // A taller full-body stand-in for an NPC, used instead of the circular
+  // badge when their fullKey art is available. The source photos are shot
+  // against a plain dark studio backdrop rather than a true transparent
+  // cutout, so the edges are feathered to transparent here (two sequential
+  // destination-in gradient passes, horizontal then vertical) instead —
+  // lets the backdrop fade into the room art rather than showing a hard
+  // rectangle.
+  ensureFullBodyCutout(cacheKeySuffix, fullKey) {
+    const cacheKey = 'full-' + cacheKeySuffix;
+    if (this.textures.exists(cacheKey)) return cacheKey;
+
+    const img = this.textures.get(fullKey).getSourceImage();
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const targetH = 380;
+    const targetW = Math.round(iw / ih * targetH);
+
+    const tex = this.textures.createCanvas(cacheKey, targetW, targetH);
+    const ctx = tex.getContext();
+    ctx.drawImage(img, 0, 0, iw, ih, 0, 0, targetW, targetH);
+
+    const marginX = targetW * 0.16, marginY = targetH * 0.1;
+    ctx.globalCompositeOperation = 'destination-in';
+
+    const hGrad = ctx.createLinearGradient(0, 0, targetW, 0);
+    hGrad.addColorStop(0, 'rgba(255,255,255,0)');
+    hGrad.addColorStop(marginX / targetW, 'rgba(255,255,255,1)');
+    hGrad.addColorStop(1 - marginX / targetW, 'rgba(255,255,255,1)');
+    hGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hGrad;
+    ctx.fillRect(0, 0, targetW, targetH);
+
+    const vGrad = ctx.createLinearGradient(0, 0, 0, targetH);
+    vGrad.addColorStop(0, 'rgba(255,255,255,0)');
+    vGrad.addColorStop(marginY / targetH, 'rgba(255,255,255,1)');
+    vGrad.addColorStop(1 - marginY / targetH, 'rgba(255,255,255,1)');
+    vGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = vGrad;
+    ctx.fillRect(0, 0, targetW, targetH);
+
+    ctx.globalCompositeOperation = 'source-over';
+    tex.refresh();
+    return cacheKey;
   }
 
   ensureCircularBadge(cacheKeySuffix, portraitKey, ringColorHex, initial) {

@@ -5,7 +5,14 @@
 //   each room's actual generated artwork — an object can sit anywhere in the image.
 //   tint colors the identifying ring around an NPC's portrait badge. portraitKey points at a
 //   loaded real photo (see BootScene); if that failed to load, RoomScene falls back to a
-//   plain initial-letter badge instead of the photo.
+//   plain initial-letter badge instead of the photo. fullKey (optional) points at a taller
+//   full-body scene shot of that NPC standing at fx/fy — when present and loaded, RoomScene
+//   draws that instead of the circular badge, feathered at the edges to blend into the
+//   background; falls back to the circular badge (then the initial-letter badge) otherwise.
+//   bakedIntoScene (optional, on an npc): true when that NPC is already painted directly into
+//   the room's bgKey art (composited in by the art generation itself, not layered at runtime)
+//   — RoomScene then draws only a small pulsing click marker at fx/fy, tinted to match, rather
+//   than a badge or full-body cutout on top of art that already has them standing there.
 // prevRoom/nextRoom: keys into this same object, used by the on-screen room-to-room nav.
 // requires (optional, on a hotspot): gates a clue until ALL given conditions are met —
 //   { npc: 'Full Name' } (that person must have been talked to), { evidence: 'id' }
@@ -55,31 +62,31 @@ export const ROOMS = {
     hotspots: [
       {
         id: 'F-01',
-        fx: 0.59,
-        fy: 0.45,
+        fx: 0.51,
+        fy: 0.49,
         name: '18th-anniversary flyers, taped to the door',
         note: '"18 YEARS OF BIG D\'S — FREE WELL DRINKS TILL MIDNIGHT." Somebody printed a few hundred of these. Most of them are still stacked by the register, untouched.'
       },
       {
         id: 'F-02',
-        fx: 0.86,
-        fy: 0.38,
+        fx: 0.1,
+        fy: 0.15,
         name: 'A broken patio umbrella, folded wrong',
         note: 'Snapped at the hinge and left leaning against a table. Could\'ve been the wind. Could\'ve been somebody in a hurry.',
         requires: { optional: true }
       },
       {
         id: 'F-03',
-        fx: 0.56,
-        fy: 0.58,
+        fx: 0.73,
+        fy: 0.5,
         name: 'The "Closed" sign, flipped early',
         note: 'Turned around a good hour before the party actually wound down — Derek liked to flip it himself, once the last stragglers were in for the night.',
         requires: { optional: true }
       },
       {
         id: 'F-04',
-        fx: 0.22,
-        fy: 0.68,
+        fx: 0.08,
+        fy: 0.72,
         name: 'A dropped bar tab, paid in full',
         note: 'Somebody\'s anniversary tab, signed and tipped generously. Nothing here but a good night, cut short.',
         redHerring: true,
@@ -87,16 +94,16 @@ export const ROOMS = {
       },
       {
         id: 'F-05',
-        fx: 0.42,
-        fy: 0.4,
+        fx: 0.06,
+        fy: 0.32,
         name: 'A cracked window pane, patched over with duct tape',
         note: 'Been like that since spring, if the yellowed tape is anything to go by. Never quite made it onto anyone\'s to-do list.',
         requires: { optional: true }
       },
       {
         id: 'F-06',
-        fx: 0.32,
-        fy: 0.78,
+        fx: 0.62,
+        fy: 0.9,
         name: 'A muddy shoe print, turned back toward the door',
         note: 'One set of prints, in and back out again. Could be anyone who stepped onto the wet patio tonight and thought better of it — half this bar did exactly that.',
         redHerring: true,
@@ -108,8 +115,9 @@ export const ROOMS = {
         tint: 0x8fa9c9,
         name: 'Danny "Tiny" Fisher',
         portraitKey: 'portrait-tiny',
-        fx: 0.64,
-        fy: 0.58,
+        bakedIntoScene: true,
+        fx: 0.43,
+        fy: 0.42,
         line: '"Ten years I\'ve had this man\'s back. Now there\'s a body in his office and half this bar looking at me like I did it."'
       }
     ]
@@ -123,8 +131,8 @@ export const ROOMS = {
     hotspots: [
       {
         id: 'P-01',
-        fx: 0.22,
-        fy: 0.55,
+        fx: 0.1,
+        fy: 0.58,
         name: "Sonny's car, a gym bag on the back seat",
         note: "Unzipped, like whoever put it there didn't much care who saw. Inside: the broken end of a pool cue, the tip dark and flecked, snapped clean where it shouldn't snap.",
         requires: { killer: 'Sonny Vance', killerMethod: 'stabbing' },
@@ -132,16 +140,16 @@ export const ROOMS = {
       },
       {
         id: 'P-02',
-        fx: 0.5,
-        fy: 0.78,
+        fx: 0.45,
+        fy: 0.86,
         name: 'Broken glass and skid marks near the curb',
         note: "Somebody peeled out of here in a hurry at some point tonight — hard to say when, with a lot in this bad a state of repair to begin with.",
         requires: { optional: true }
       },
       {
         id: 'P-03',
-        fx: 0.85,
-        fy: 0.3,
+        fx: 0.05,
+        fy: 0.24,
         name: 'A dead security camera, cable dangling',
         note: "Been broken for months, by the look of the dust on the housing — a running joke among the staff, not a cover-up. No footage from out here tonight, whatever anybody hoped for.",
         redHerring: true,
@@ -149,8 +157,8 @@ export const ROOMS = {
       },
       {
         id: 'P-04',
-        fx: 0.65,
-        fy: 0.55,
+        fx: 0.14,
+        fy: 0.65,
         name: "Nikki's car, engine still faintly warm",
         note: "She says she left right after she got fired, around eleven. The hood's still warm to the touch — long after eleven, whatever she says about it.",
         implicates: 'Nikki Alvarez',
@@ -158,16 +166,16 @@ export const ROOMS = {
       },
       {
         id: 'P-05',
-        fx: 0.38,
-        fy: 0.62,
+        fx: 0.8,
+        fy: 0.45,
         name: "Duck's truck, tailgate hanging open",
         note: 'Nothing in the bed but a spare tire and a case of empties. He\'s been meaning to return those for a month.',
         requires: { optional: true }
       },
       {
         id: 'P-06',
-        fx: 0.12,
-        fy: 0.82,
+        fx: 0.55,
+        fy: 0.92,
         name: 'A crushed beer can, half-sunk in the gravel',
         note: 'Somebody\'s idea of cleaning up after themselves. Could\'ve been dropped any night this month.',
         redHerring: true,
@@ -179,8 +187,9 @@ export const ROOMS = {
         tint: 0xe8a33d,
         name: 'Nikki Alvarez',
         portraitKey: 'portrait-nikki',
-        fx: 0.65,
-        fy: 0.5,
+        bakedIntoScene: true,
+        fx: 0.38,
+        fy: 0.46,
         line: '"Guess it doesn\'t matter that he fired me anymore, huh. Kind of hard to feel bad about that part tonight."'
       }
     ]
@@ -362,8 +371,8 @@ export const ROOMS = {
     hotspots: [
       {
         id: 'M-01',
-        fx: 0.05,
-        fy: 0.52,
+        fx: 0.04,
+        fy: 0.6,
         name: 'A box of rat poison, missing from under the sink',
         note: "Every bar keeps some — for the actual rats. This one's supposed to live under the sink behind the bar. It doesn't, not anymore.",
         requires: { killer: 'Jade Marlow', killerMethod: 'poison' },
@@ -371,8 +380,8 @@ export const ROOMS = {
       },
       {
         id: 'M-02',
-        fx: 0.14,
-        fy: 0.42,
+        fx: 0.12,
+        fy: 0.68,
         name: "Jade's register tape, the numbers not quite matching",
         note: "Small amounts, skimmed carefully over months — not enough to notice unless you were looking, which nobody was, until now.",
         requires: { npc: 'Jade Marlow' },
@@ -380,8 +389,8 @@ export const ROOMS = {
       },
       {
         id: 'M-03',
-        fx: 0.44,
-        fy: 0.62,
+        fx: 0.7,
+        fy: 0.4,
         name: "Sonny's drink, poured and left untouched",
         note: 'Sitting by the pool table since well before close, the ice long since melted flat. Odd, for a man who claims he left before closing — he never got around to finishing it.',
         requires: { killer: 'Sonny Vance' },
@@ -390,8 +399,8 @@ export const ROOMS = {
       },
       {
         id: 'M-04',
-        fx: 0.62,
-        fy: 0.58,
+        fx: 0.64,
+        fy: 0.42,
         name: "A ledger, tucked under the pool table's felt",
         note: "Sonny's own handwriting: a running tally of everything Derek owed him, month by month, the number only ever growing. Derek had stopped taking his calls weeks ago.",
         requires: { npc: 'Sonny Vance' },
@@ -399,8 +408,8 @@ export const ROOMS = {
       },
       {
         id: 'M-05',
-        fx: 0.08,
-        fy: 0.3,
+        fx: 0.06,
+        fy: 0.28,
         name: "A note tucked into Derek's coat, behind the bar",
         note: 'A motel receipt, folded around a note addressed to Duck\'s wife — in Derek\'s own handwriting. Whatever this was, it had been going on for over a year.',
         requires: { npc: 'Duck Pruitt' },
@@ -408,8 +417,8 @@ export const ROOMS = {
       },
       {
         id: 'M-06',
-        fx: 0.62,
-        fy: 0.35,
+        fx: 0.63,
+        fy: 0.22,
         name: 'A handful of darts missing from the board',
         note: "The house set always runs light by a few — regulars walk off with them constantly. One turned up later, off to the side, with dried blood still on the point.",
         requires: { killer: 'Duck Pruitt', killerMethod: 'stabbing' },
@@ -417,8 +426,8 @@ export const ROOMS = {
       },
       {
         id: 'M-07',
-        fx: 0.63,
-        fy: 0.5,
+        fx: 0.78,
+        fy: 0.55,
         name: "Buyout paperwork, spilled from Marisol's purse",
         note: "Derek's latest offer for her 40% stake in the bar — a number so low it reads almost like an insult, after twenty-two years of marriage and a decade of 'we'll figure it out.'",
         requires: { npc: 'Marisol Ortiz' },
@@ -426,8 +435,8 @@ export const ROOMS = {
       },
       {
         id: 'M-08',
-        fx: 0.8,
-        fy: 0.5,
+        fx: 0.94,
+        fy: 0.55,
         name: 'A vinyl crate, wiped clean, shoved under the DJ booth',
         note: "One corner still carries a faint dark stain the rag missed. Doesn't belong under there — the crates usually stack against the back wall.",
         requires: { killer: 'DJ Cruz', killerMethod: 'blunt-force' },
@@ -435,8 +444,8 @@ export const ROOMS = {
       },
       {
         id: 'M-09',
-        fx: 0.85,
-        fy: 0.34,
+        fx: 0.88,
+        fy: 0.22,
         name: "Something DJ Cruz can't stop thinking about",
         note: "He saw Derek grab Jade's wrist hard enough to bruise, right in the back hallway, earlier tonight — in full view of anyone who happened to be looking his way. He was.",
         requires: { npc: 'DJ Cruz' },
@@ -444,8 +453,8 @@ export const ROOMS = {
       },
       {
         id: 'M-10',
-        fx: 0.78,
-        fy: 0.44,
+        fx: 0.97,
+        fy: 0.35,
         name: "The karaoke setlist, one song underlined twice",
         note: 'Dedicated earlier tonight "to somebody who deserves better" — staff remember it clearly, even if nobody thought much of it until now.',
         requires: { npc: 'Jade Marlow' },
@@ -453,8 +462,8 @@ export const ROOMS = {
       },
       {
         id: 'M-11',
-        fx: 0.45,
-        fy: 0.72,
+        fx: 0.35,
+        fy: 0.9,
         name: 'A torn raffle ticket, half-burned in an ashtray',
         note: "Somebody's losing anniversary raffle number, nothing more. Doesn't match anything else in the building.",
         redHerring: true,
@@ -464,15 +473,15 @@ export const ROOMS = {
       {
         id: 'M-12',
         fx: 0.5,
-        fy: 0.08,
+        fy: 0.04,
         name: 'The anniversary banner, half torn down',
         note: '"18 YEARS!" in gold letters, one corner ripped loose sometime during the party and never fixed.',
         requires: { optional: true }
       },
       {
         id: 'M-13',
-        fx: 0.1,
-        fy: 0.66,
+        fx: 0.97,
+        fy: 0.5,
         name: "Roz's bar tab, the total circled twice in red pen",
         note: "Written up months ago and never quite settled. Derek finally lost patience with letting it slide — he'd started threatening to call her grown kids and lay the whole thing out for them, publicly, right at the anniversary party, unless she paid every cent.",
         requires: { npc: 'Roz Kessler' },
@@ -480,8 +489,8 @@ export const ROOMS = {
       },
       {
         id: 'M-14',
-        fx: 0.92,
-        fy: 0.85,
+        fx: 0.55,
+        fy: 0.6,
         name: "An old custody ruling, folded and re-folded until it's falling apart",
         note: "Derek's own testimony is quoted on the second page — about the drinking he'd watched firsthand from behind his bar for years. It cost Dale the kids and most of the settlement he might otherwise have walked away with.",
         requires: { npc: 'Dale Bracken' },
@@ -489,8 +498,8 @@ export const ROOMS = {
       },
       {
         id: 'M-15',
-        fx: 0.15,
-        fy: 0.85,
+        fx: 0.99,
+        fy: 0.65,
         name: "Roz's purse, hooked on the back of her chair",
         note: "An amber pill bottle rattles near-empty inside — her own prescription, sedatives and heart medication both. A crushed, chalky residue clings to the inside of the cap, and to a balled-up cocktail napkin folded in next to it.",
         requires: { killer: 'Roz Kessler', killerMethod: 'poison' },
@@ -498,8 +507,8 @@ export const ROOMS = {
       },
       {
         id: 'M-16',
-        fx: 0.88,
-        fy: 0.88,
+        fx: 0.52,
+        fy: 0.42,
         name: "A heavy glass ashtray on Dale's table, wiped unnaturally clean",
         note: "Every other surface at his table is a mess of spilled beer and cigarette ash, same as it's been all night. This one ashtray has been wiped down to a shine, the edges still faintly damp.",
         requires: { killer: 'Dale Bracken', killerMethod: 'blunt-force' },
@@ -507,8 +516,8 @@ export const ROOMS = {
       },
       {
         id: 'M-17',
-        fx: 0.22,
-        fy: 0.44,
+        fx: 0.34,
+        fy: 0.6,
         name: "A landlord's final notice, three days overdue, tucked into Skylar's clutch on the bar",
         note: "Addressed to Skylar, not Derek — she'd been counting on him to cover it, out loud, in front of people, for weeks. Tonight he told her it wasn't happening. He told her the two of them weren't happening either, in the same breath, in front of half the bar.",
         requires: { npc: 'Skylar Reyes' },
@@ -520,64 +529,72 @@ export const ROOMS = {
         tint: 0xff6fa8,
         name: 'Jade Marlow',
         portraitKey: 'portrait-jade',
-        fx: 0.15,
-        fy: 0.32,
+        bakedIntoScene: true,
+        fx: 0.3,
+        fy: 0.5,
         line: '"I found him. I keep waiting for that to stop being the only thing anyone wants to talk to me about tonight."'
       },
       {
         tint: 0xc9a24a,
         name: 'Sonny Vance',
         portraitKey: 'portrait-sonny',
-        fx: 0.5,
-        fy: 0.48,
+        bakedIntoScene: true,
+        fx: 0.62,
+        fy: 0.33,
         line: '"Whatever you heard about me and Derek, I didn\'t need him dead. Dead men are terrible at paying what they owe."'
       },
       {
         tint: 0xd97a9c,
         name: 'Marisol Ortiz',
         portraitKey: 'portrait-marisol',
-        fx: 0.62,
-        fy: 0.47,
+        bakedIntoScene: true,
+        fx: 0.76,
+        fy: 0.4,
         line: '"Twenty-two years married to that man, and I still heard he was dead from a bartender half my age."'
       },
       {
         tint: 0x3ddad7,
         name: 'DJ Cruz',
         portraitKey: 'portrait-cruz',
-        fx: 0.82,
-        fy: 0.38,
+        bakedIntoScene: true,
+        fx: 0.9,
+        fy: 0.27,
         line: '"Somebody\'s going to ask if I\'m broken up about this. I\'d rather talk about literally anything else."'
       },
       {
         tint: 0xb5c98f,
         name: 'Duck Pruitt',
         portraitKey: 'portrait-duck',
-        fx: 0.58,
-        fy: 0.42,
+        bakedIntoScene: true,
+        fx: 0.59,
+        fy: 0.2,
         line: '"Forty years I knew that man. Turns out I didn\'t know him at all, not by the end of it."'
       },
       {
         tint: 0x9b7fd4,
         name: 'Roz Kessler',
         portraitKey: 'portrait-roz',
-        fx: 0.08,
-        fy: 0.78,
+        bakedIntoScene: true,
+        fx: 0.88,
+        fy: 0.4,
         line: '"Well, he\'s not calling anybody\'s kids now, is he. Don\'t look at me like that — I\'m allowed to say it."'
       },
       {
         tint: 0x7f9bd4,
         name: 'Dale Bracken',
         portraitKey: 'portrait-dale',
-        fx: 0.95,
-        fy: 0.82,
+        bakedIntoScene: true,
+        fx: 0.5,
+        fy: 0.3,
         line: '"Everybody in this room\'s got a story about Derek tonight. Mine\'s just uglier than most of theirs."'
       },
       {
         tint: 0xe85d75,
         name: 'Skylar Reyes',
         portraitKey: 'portrait-skylar',
-        fx: 0.25,
-        fy: 0.48,
+        bakedIntoScene: true,
+        fx: 0.52,
+        fy: 0.4,
         line: '"He humiliated me in front of this whole bar a few hours ago. Forgive me if I\'m not first in line to cry about him."'
       }
     ]
