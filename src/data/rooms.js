@@ -368,6 +368,12 @@ export const ROOMS = {
     bgKey: 'bg-mainbar',
     prevRoom: 'rightext',
     nextRoom: 'mensroom',
+    // Eight NPCs baked into one wide shot makes their markers small and
+    // close together — clicking one here also eases the camera in on that
+    // spot (see RoomScene's approachPoint), instead of leaving the player
+    // to manually pinch/scroll to see who they're talking to. The Zoom Out
+    // button (always present) backs out to the full room again.
+    approachOnClick: true,
     hotspots: [
       {
         id: 'M-01',

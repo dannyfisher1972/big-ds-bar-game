@@ -192,6 +192,7 @@ export default class RoomScene extends Phaser.Scene {
         // dialog's already up now just advances/closes it, same as clicking
         // the dialog box itself would.
         if (this.isDialogOpen()) { this.advanceDialog(); return; }
+        this.approachPoint(h.fx, h.fy);
         if (h.puzzle && !FOUND_EVIDENCE.has(h.id)) {
           this.openPuzzle(entry);
         } else {
@@ -625,6 +626,7 @@ export default class RoomScene extends Phaser.Scene {
     npc.on('pointerout', () => this.setPrompt(null));
     npc.on('pointerdown', () => {
       if (this.isDialogOpen()) { this.advanceDialog(); return; }
+      this.approachPoint(cfg.fx, cfg.fy);
       this.talkToNPC(npc);
     });
     return npc;
@@ -755,6 +757,24 @@ export default class RoomScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const base = cam.zoom;
     this.tweens.add({ targets: cam, zoom: base * 1.08, duration: 190, yoyo: true, ease: 'Sine.easeInOut' });
+  }
+
+  // Eases the camera in on a clicked marker (see rooms.js's approachOnClick,
+  // used for the crowded main room) so clicking someone in a wide shot full
+  // of people actually reads as walking up to them, rather than just
+  // popping a dialog over a scene that still looks the same size. Only
+  // fires from the fully-zoomed-out state — if the player's already
+  // manually zoomed in on a different part of the room, respect that
+  // instead of yanking the camera to a new spot mid-interaction.
+  approachPoint(fx, fy) {
+    if (!this.roomConfig.approachOnClick) return;
+    const cam = this.cameras.main;
+    if (cam.zoom > 1.01) return;
+    const p = this.pointToScene(fx, fy);
+    this.tweens.add({ targets: cam, zoom: 1.9, duration: 450, ease: 'Sine.easeOut' });
+    cam.pan(p.x, p.y, 450, 'Sine.easeOut');
+    this.updateZoomButtonState();
+    this.time.delayedCall(460, () => this.updateZoomButtonState());
   }
 
   isDialogOpen() {
