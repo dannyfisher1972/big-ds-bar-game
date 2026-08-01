@@ -397,6 +397,23 @@
   #zoomControls button:disabled{ opacity:.35; cursor:not-allowed; }
   #zoomControls button:disabled:hover{ border-color:var(--line); color:var(--ink-soft); }
 
+  /* --- Pan chevrons: only shown once approachPoint has zoomed the camera in
+     on a crowded room (see rooms.js's approachOnClick), letting the player
+     shift to the next/previous person without backing out to the wide shot
+     first. Bottom-center so they never fight zoomControls (left edge) or
+     talkedToPanel (right edge) for space. --- */
+  #panControls{
+    position:absolute; left:50%; bottom:58px; transform:translateX(-50%);
+    display:none; gap:10px; pointer-events:auto; z-index:5;
+  }
+  #panControls.visible{ display:flex; }
+  #panControls button{
+    width:38px; height:38px; font-size:20px; line-height:1;
+    background:rgba(20,18,15,0.8); border:1px solid var(--line); color:var(--ink-soft);
+    border-radius:3px; cursor:pointer; font-family:'Lora', Georgia, serif;
+  }
+  #panControls button:hover{ border-color:var(--neon-pink); color:var(--neon-pink); }
+
   /* --- Quick-retalk sidebar: only people already talked to, minus anyone
      physically standing in the current room (they're already clickable
      there). Hidden while a dialog is open so it never overlaps it. --- */
@@ -439,6 +456,8 @@
     #actionButtons{ bottom:8px; right:8px; gap:5px; }
     #actionButtons button{ font-size:10px; padding:5px 8px; }
     #progressBadge{ bottom:8px; left:8px; font-size:10px; padding:4px 8px; }
+    #panControls{ bottom:46px; gap:6px; }
+    #panControls button{ width:32px; height:32px; font-size:16px; }
   }
 
   /* --- Notebook --- */
@@ -679,6 +698,10 @@
       <div id="zoomControls">
         <button id="zoomInBtn" aria-label="Zoom in" title="Zoom in">+</button>
         <button id="zoomOutBtn" aria-label="Zoom out" title="Zoom out" disabled>−</button>
+      </div>
+      <div id="panControls">
+        <button id="panPrevBtn" aria-label="Look at the previous person" title="Look left">‹</button>
+        <button id="panNextBtn" aria-label="Look at the next person" title="Look right">›</button>
       </div>
       <div id="actionButtons">
         <button id="caseFileBtn">🗎 Case File</button>

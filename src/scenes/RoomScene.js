@@ -58,6 +58,17 @@ export default class RoomScene extends Phaser.Scene {
     setCurrentRoom(this.roomKey);
     markRoomVisited(this.roomKey);
 
+    // scene.restart() on every room change destroys the previous scene's
+    // game objects, but this class instance (and its properties) survives —
+    // without this reset, enterInterview would find a truthy but destroyed
+    // interviewBackdrop reference on the very next room and blow up trying
+    // to call setTexture() on it.
+    this.interviewBackdrop = null;
+    this.interviewShade = null;
+    this.spotlightOverlay = null;
+    this._interviewReturnFx = null;
+    this._interviewReturnFy = null;
+
     // For Nikki's scenario, where the death looks like an accident at a
     // glance, the office opens with only a single "first glance" hotspot
     // instead of the full clue set — clicking it is what actually reveals
@@ -121,6 +132,7 @@ export default class RoomScene extends Phaser.Scene {
     // bounds keep panning from scrolling past the edge of the background.
     cam.setBounds(0, 0, this.scale.width, this.scale.height);
     this.setupZoomControls();
+    this.setupPanControls();
 
     cam.fadeIn(400, 5, 5, 8);
 
@@ -261,6 +273,7 @@ export default class RoomScene extends Phaser.Scene {
   talkToNPC(npc) {
     playClick();
     this.hideSpotlight();
+    this.enterInterview(npc);
     markTalkedTo(npc.npcName);
     this.showDialog(npc.npcDisplayName || npc.npcName, npc.npcLine, this.resolvePortrait(npc), this.buildQuestionButtons(npc));
     this.renderUnlockedHotspots();
@@ -562,6 +575,95 @@ export default class RoomScene extends Phaser.Scene {
     this.bg.setDisplaySize(w, h);
   }
 
+  // Swaps in that NPC's own portrait as a full-bleed backdrop for the
+  // conversation — a stand-in for "step away to a private location to talk"
+  // that doesn't need a dedicated interview background per suspect: everyone
+  // else in the room (their markers, the shared scene) fades out, leaving
+  // just this person's own photo behind the dialog, like they've pulled the
+  // player aside. exitInterview (called from closeDialog) undoes all of it.
+  enterInterview(npc) {
+    const key = npc.npcPortraitKey;
+    if (!key || !this.hasRealAsset(key)) return;
+
+    const w = this.scale.width, h = this.scale.height;
+    const cam = this.cameras.main;
+    // talkToNPC fires right after approachPoint kicks off its zoom tween —
+    // that tween hasn't applied anything yet (Phaser tweens start on the
+    // next update, not the frame they're created), but it's still running
+    // and would spend the next 450ms fighting the direct zoom assignment
+    // below, slowly dragging the portrait's zoom back toward 1.9 mid-
+    // conversation. Killing it first makes the reset land immediately and
+    // stay put.
+    this.tweens.killTweensOf(cam);
+    // Remembered so exitInterview can zoom back in on this same person in
+    // the room (not their portrait) once the dialog closes, rather than
+    // resetting all the way out to the wide shot — closing a conversation
+    // should leave the player still "standing there", free to pan straight
+    // to whoever's next instead of re-approaching from scratch every time.
+    this._interviewReturnFx = npc.cfgFx;
+    this._interviewReturnFy = npc.cfgFy;
+    cam.zoom = 1;
+    cam.centerOn(w / 2, h / 2);
+
+    if (!this.interviewBackdrop) {
+      // Origin biased toward the top: these portraits are bust shots with
+      // the face in the upper third, and cover-fitting a taller-than-canvas
+      // photo would otherwise crop evenly top/bottom — centering the crop
+      // on the chest instead of the face.
+      this.interviewBackdrop = this.add.image(w / 2, h / 2, key).setOrigin(0.5, 0.22);
+      this.interviewBackdrop.setDepth(400);
+      this.interviewBackdrop.setAlpha(0);
+      this.interviewShade = this.add.rectangle(w / 2, h / 2, w, h, 0x0a0806, 0.45);
+      this.interviewShade.setDepth(401);
+      this.interviewShade.setAlpha(0);
+    } else {
+      this.interviewBackdrop.setTexture(key);
+    }
+    // Cover-fit: portraits are taller than the 3:2 canvas, so match on
+    // whichever axis would otherwise letterbox and let the other overflow —
+    // crops the sides rather than showing bars around a floating photo.
+    const img = this.textures.get(key).getSourceImage();
+    const scale = Math.max(w / img.width, h / img.height);
+    this.interviewBackdrop.setDisplaySize(img.width * scale, img.height * scale);
+    this.interviewBackdrop.setPosition(w / 2, h * 0.22);
+
+    this.hideSpotlight();
+    this.npcs.forEach(n => n.setVisible(false));
+    this.evidenceMarkers.forEach(e => e.marker.setVisible(false));
+    if (this.firstGlanceMarker) this.firstGlanceMarker.setVisible(false);
+
+    this.tweens.add({ targets: [this.interviewBackdrop, this.interviewShade], alpha: { from: 0, to: 1 }, duration: 250 });
+  }
+
+  exitInterview() {
+    if (!this.interviewBackdrop) return;
+    // Only set while a conversation (not a hotspot examine) is the reason
+    // this backdrop exists — closing a hotspot's dialog re-runs this same
+    // cleanup (interviewBackdrop persists, hidden, from an earlier chat)
+    // but shouldn't touch the camera, since that hotspot's own approachPoint
+    // already left it exactly where it should be.
+    if (this._interviewReturnFx != null) {
+      // Only re-approach in rooms that use approachPoint/pan chevrons in
+      // the first place (the crowded main room) — elsewhere, zooming back
+      // in after a chat nobody asked to zoom into would just be a jarring
+      // camera move with no chevrons to make use of it. Those rooms' camera
+      // is already correctly at zoom 1 from enterInterview's reset.
+      if (this.roomConfig.approachOnClick) this.panToPoint(this._interviewReturnFx, this._interviewReturnFy);
+      this._interviewReturnFx = null;
+      this._interviewReturnFy = null;
+    }
+    this.tweens.add({
+      targets: [this.interviewBackdrop, this.interviewShade],
+      alpha: 0,
+      duration: 200,
+      onComplete: () => {
+        this.npcs.forEach(n => n.setVisible(true));
+        this.evidenceMarkers.forEach(e => e.marker.setVisible(true));
+        if (this.firstGlanceMarker) this.firstGlanceMarker.setVisible(true);
+      }
+    });
+  }
+
   // A dedicated in-game zoom, rather than relying on the browser's own
   // pinch-zoom: that's technically available but easy to miss entirely in
   // something that reads as a game rather than a web page, and zooming the
@@ -579,6 +681,7 @@ export default class RoomScene extends Phaser.Scene {
       cam.zoom = Phaser.Math.Clamp(z, ZOOM_MIN, ZOOM_MAX);
       if (cam.zoom <= ZOOM_MIN + 0.001) cam.centerOn(this.scale.width / 2, this.scale.height / 2);
       this.updateZoomButtonState();
+      this.updatePanControlsVisibility();
     };
 
     // .onclick (not addEventListener) deliberately — these DOM buttons
@@ -664,6 +767,8 @@ export default class RoomScene extends Phaser.Scene {
     npc.npcName = cfg.name;
     npc.npcLine = cfg.line;
     npc.npcPortraitKey = cfg.portraitKey;
+    npc.cfgFx = cfg.fx;
+    npc.cfgFy = cfg.fy;
     const matched = CHARACTERS.find(c => c.name === cfg.name);
     npc.answers = matched?.answers;
     // Separate from npcName, which stays the fixed internal identifier every
@@ -823,11 +928,69 @@ export default class RoomScene extends Phaser.Scene {
     if (!this.roomConfig.approachOnClick) return;
     const cam = this.cameras.main;
     if (cam.zoom > 1.01) return;
+    this.panToPoint(fx, fy);
+  }
+
+  // The actual camera move, shared by approachPoint (first click, from fully
+  // zoomed out) and the pan chevrons (stepping between people while already
+  // zoomed in) — kept separate from approachPoint so the chevrons can move
+  // the camera regardless of current zoom, while a stray click elsewhere in
+  // the room still respects "only approach from zoomed-out".
+  panToPoint(fx, fy) {
+    const cam = this.cameras.main;
     const p = this.pointToScene(fx, fy);
     this.tweens.add({ targets: cam, zoom: 1.9, duration: 450, ease: 'Sine.easeOut' });
     cam.pan(p.x, p.y, 450, 'Sine.easeOut');
     this.updateZoomButtonState();
-    this.time.delayedCall(460, () => this.updateZoomButtonState());
+    // cam.zoom only reaches 1.9 once the tween above finishes — checking
+    // visibility synchronously here would still see the pre-tween value and
+    // hide the chevrons right after showing them, so it's rechecked once
+    // the animation has actually landed.
+    this.time.delayedCall(460, () => { this.updateZoomButtonState(); this.updatePanControlsVisibility(); });
+    if (this.panTargets && this.panTargets.length) {
+      let best = 0, bestDist = Infinity;
+      this.panTargets.forEach((t, i) => {
+        const d = Math.hypot(t.fx - fx, t.fy - fy);
+        if (d < bestDist) { bestDist = d; best = i; }
+      });
+      this.panIndex = best;
+    }
+    this.updatePanControlsVisibility();
+  }
+
+  // Builds the ordered list of people the pan chevrons step between (left to
+  // right across the room) and wires the buttons up — only for rooms that
+  // opt in via approachOnClick, since a single-NPC room has nothing to pan
+  // between.
+  setupPanControls() {
+    const cfg = this.roomConfig;
+    this.panTargets = cfg.approachOnClick
+      ? (cfg.npcs || []).filter(n => n.bakedIntoScene).map(n => ({ fx: n.fx, fy: n.fy })).sort((a, b) => a.fx - b.fx)
+      : [];
+    this.panIndex = -1;
+
+    const prevBtn = document.getElementById('panPrevBtn');
+    const nextBtn = document.getElementById('panNextBtn');
+    if (prevBtn) prevBtn.onclick = () => this.stepPan(-1);
+    if (nextBtn) nextBtn.onclick = () => this.stepPan(1);
+    this.updatePanControlsVisibility();
+  }
+
+  stepPan(delta) {
+    if (!this.panTargets || !this.panTargets.length) return;
+    playClick();
+    const from = this.panIndex >= 0 ? this.panIndex : 0;
+    const next = (from + delta + this.panTargets.length) % this.panTargets.length;
+    const target = this.panTargets[next];
+    this.hideSpotlight();
+    this.panToPoint(target.fx, target.fy);
+  }
+
+  updatePanControlsVisibility() {
+    const panControls = document.getElementById('panControls');
+    if (!panControls) return;
+    const show = this.roomConfig.approachOnClick && this.panTargets && this.panTargets.length > 1 && this.cameras.main.zoom > 1.01;
+    panControls.classList.toggle('visible', !!show);
   }
 
   isDialogOpen() {
@@ -906,6 +1069,7 @@ export default class RoomScene extends Phaser.Scene {
     clearInterval(this._typeInterval);
     this._typeInterval = null;
     this.dialogEl.style.display = 'none';
+    this.exitInterview();
     this.renderTalkedToPanel();
     if (this._afterDialogClose) {
       const cb = this._afterDialogClose;
