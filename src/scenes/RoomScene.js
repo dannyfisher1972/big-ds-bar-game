@@ -260,6 +260,7 @@ export default class RoomScene extends Phaser.Scene {
 
   talkToNPC(npc) {
     playClick();
+    this.hideSpotlight();
     markTalkedTo(npc.npcName);
     this.showDialog(npc.npcDisplayName || npc.npcName, npc.npcLine, this.resolvePortrait(npc), this.buildQuestionButtons(npc));
     this.renderUnlockedHotspots();
@@ -510,6 +511,51 @@ export default class RoomScene extends Phaser.Scene {
     return 'glowDot';
   }
 
+  // Dims the whole room except a soft circle around (cx, cy) — used to draw
+  // the eye to a baked-into-scene NPC on hover, standing in for a per-person
+  // silhouette outline that would need its own cutout art. Caches one canvas
+  // texture per rounded position so repeat hovers over the same person reuse
+  // it instead of redrawing the full-canvas gradient every time.
+  ensureSpotlightMask(cx, cy) {
+    const key = 'spotlight-' + Math.round(cx) + '-' + Math.round(cy);
+    if (this.textures.exists(key)) return key;
+
+    const w = this.scale.width, h = this.scale.height;
+    const tex = this.textures.createCanvas(key, w, h);
+    const ctx = tex.getContext();
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'destination-out';
+    const radius = 160;
+    const grad = ctx.createRadialGradient(cx, cy, radius * 0.25, cx, cy, radius);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    tex.refresh();
+    return key;
+  }
+
+  showSpotlight(x, y) {
+    const key = this.ensureSpotlightMask(x, y);
+    if (!this.spotlightOverlay) {
+      this.spotlightOverlay = this.add.image(this.scale.width / 2, this.scale.height / 2, key);
+      this.spotlightOverlay.setDepth(500);
+      this.spotlightOverlay.setAlpha(0);
+    } else {
+      this.spotlightOverlay.setTexture(key);
+    }
+    this.tweens.killTweensOf(this.spotlightOverlay);
+    this.tweens.add({ targets: this.spotlightOverlay, alpha: 1, duration: 150 });
+  }
+
+  hideSpotlight() {
+    if (!this.spotlightOverlay) return;
+    this.tweens.killTweensOf(this.spotlightOverlay);
+    this.tweens.add({ targets: this.spotlightOverlay, alpha: 0, duration: 150 });
+  }
+
   fitBackgroundToScene() {
     const w = this.scale.width, h = this.scale.height;
     this.bg.setPosition(w / 2, h / 2);
@@ -600,6 +646,13 @@ export default class RoomScene extends Phaser.Scene {
       npc.setScale(MARKER_SCALE);
       npc.setAlpha(0.85);
       this.tweens.add({ targets: npc, scale: { from: MARKER_SCALE, to: MARKER_SCALE_PEAK }, alpha: { from: 0.85, to: 0.5 }, duration: 900, yoyo: true, repeat: -1 });
+      // Baked-into-scene NPCs have no badge or cutout of their own to catch
+      // the eye, so hovering dims the rest of the painted-in room and leaves
+      // just this person lit — a stand-in for "highlight their silhouette"
+      // that doesn't require a separate cutout of each person.
+      const spotP = this.pointToScene(cfg.fx, cfg.fy);
+      npc.on('pointerover', () => this.showSpotlight(spotP.x, spotP.y));
+      npc.on('pointerout', () => this.hideSpotlight());
     } else {
       // Full-body art stands taller than it is wide, so fx/fy (tuned as the
       // NPC's rough center when they were a small circular badge) is anchored
