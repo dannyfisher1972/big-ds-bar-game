@@ -20,7 +20,8 @@ const ROOM_BACKGROUNDS = {
 // walkForward hotspot (see rooms.js) — one per doorway/path this applies to,
 // not a full background in its own right, so kept out of ROOM_BACKGROUNDS.
 const APPROACH_SHOTS = {
-  'approach-frontdoor': 'frontdoor-closeup.png'
+  'approach-frontdoor': 'frontdoor-closeup.png',
+  'approach-parkinglot': 'parkinglot-approach.png'
 };
 
 const PORTRAITS = {

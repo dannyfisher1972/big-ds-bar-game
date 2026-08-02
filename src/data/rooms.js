@@ -144,6 +144,13 @@ export const ROOMS = {
     bgKey: 'bg-parkinglot',
     prevRoom: 'frontext',
     nextRoom: 'leftext',
+    walkForward: {
+      fx: 0.55,
+      fy: 0.31,
+      label: 'Walk forward',
+      approachBgKey: 'approach-parkinglot',
+      targetRoom: 'leftext'
+    },
     hotspots: [
       {
         id: 'P-01',
@@ -391,6 +398,18 @@ export const ROOMS = {
     // to manually pinch/scroll to see who they're talking to. The Zoom Out
     // button (always present) backs out to the full room again.
     approachOnClick: true,
+    // Room too crowded for the usual dirNav meaning of forward/left/right
+    // (walk to the next room / turn to face the adjacent one) — here they
+    // instead move the camera between broad areas of this same room, left
+    // to right: the bar, the pool table & darts, the DJ booth & lounge
+    // tables. Leaving the room still works via the corner text buttons.
+    // Once zoomed into a zone, panControls (see setupPanControls) takes
+    // over for stepping between individual people.
+    walkZones: [
+      { label: 'The bar', fx: 0.3, fy: 0.4 },
+      { label: 'Pool table & darts', fx: 0.58, fy: 0.28 },
+      { label: 'DJ booth & lounge', fx: 0.85, fy: 0.3 }
+    ],
     hotspots: [
       {
         id: 'M-01',

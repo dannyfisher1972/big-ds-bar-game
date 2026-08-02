@@ -971,6 +971,23 @@ export default class RoomScene extends Phaser.Scene {
     const leftBtn = document.getElementById('lookLeftBtn');
     const rightBtn = document.getElementById('lookRightBtn');
     const upBtn = document.getElementById('walkForwardBtn');
+
+    if (cfg.walkZones && cfg.walkZones.length) {
+      // A crowded room like the main bar: forward/left/right move between
+      // areas of THIS room instead of leaving it (see rooms.js's walkZones)
+      // — leaving is still available via the corner text buttons, unaffected.
+      const zones = cfg.walkZones;
+      const mid = zones[Math.floor(zones.length / 2)];
+      if (leftBtn) { leftBtn.onclick = () => this.panToPoint(zones[0].fx, zones[0].fy); leftBtn.disabled = false; }
+      if (rightBtn) { rightBtn.onclick = () => this.panToPoint(zones[zones.length - 1].fx, zones[zones.length - 1].fy); rightBtn.disabled = false; }
+      if (upBtn) { upBtn.onclick = () => this.panToPoint(mid.fx, mid.fy); upBtn.disabled = false; }
+      this.input.keyboard.on('keydown-UP', (event) => { if (event) event.preventDefault(); if (!this.isDialogOpen()) this.panToPoint(mid.fx, mid.fy); });
+      this.input.keyboard.on('keydown-LEFT', () => { if (!this.isDialogOpen()) this.panToPoint(zones[0].fx, zones[0].fy); });
+      this.input.keyboard.on('keydown-RIGHT', () => { if (!this.isDialogOpen()) this.panToPoint(zones[zones.length - 1].fx, zones[zones.length - 1].fy); });
+      this.updateDirNavVisibility();
+      return;
+    }
+
     if (leftBtn) { leftBtn.onclick = () => this.goToRoom(cfg.prevRoom); leftBtn.disabled = !cfg.prevRoom; }
     if (rightBtn) { rightBtn.onclick = () => this.goToRoom(cfg.nextRoom); rightBtn.disabled = !cfg.nextRoom; }
     if (upBtn) { upBtn.onclick = () => this.walkForward(cfg.walkForward); upBtn.disabled = !cfg.walkForward; }
