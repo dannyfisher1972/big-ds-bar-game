@@ -59,6 +59,18 @@ export const ROOMS = {
     bgKey: 'bg-frontext',
     prevRoom: 'office',
     nextRoom: 'parkinglot',
+    // A second, more immersive way into the bar alongside the plain arrow
+    // nav: click the door and the camera walks up to it, cuts to a closer
+    // shot of it, then arrives in the main room — see RoomScene's
+    // walkForward. approachBgKey is a one-off close shot (BootScene's
+    // APPROACH_SHOTS), not a full room background in its own right.
+    walkForward: {
+      fx: 0.51,
+      fy: 0.68,
+      label: 'Walk inside',
+      approachBgKey: 'approach-frontdoor',
+      targetRoom: 'mainbar'
+    },
     hotspots: [
       {
         id: 'F-01',

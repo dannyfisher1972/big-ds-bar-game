@@ -68,6 +68,7 @@ export default class RoomScene extends Phaser.Scene {
     this.spotlightOverlay = null;
     this._interviewReturnFx = null;
     this._interviewReturnFy = null;
+    this._walking = false;
 
     // For Nikki's scenario, where the death looks like an accident at a
     // glance, the office opens with only a single "first glance" hotspot
@@ -85,6 +86,8 @@ export default class RoomScene extends Phaser.Scene {
 
     this.npcs = [];
     (cfg.npcs || []).forEach(n => this.addNPC(n));
+
+    if (cfg.walkForward) this.renderWalkForward(cfg.walkForward);
 
     this.evidenceMarkers = [];
     if (this.preDiscovery) {
@@ -113,7 +116,20 @@ export default class RoomScene extends Phaser.Scene {
     this.dialogPortraitEl = document.getElementById('dialog-portrait');
     this.dialogQuestionsEl = document.getElementById('dialog-questions');
     this.dialogScrollareaEl = document.getElementById('dialog-scrollarea');
-    this.dialogEl.onclick = () => this.advanceDialog();
+    // Question buttons already stopPropagation() on their own click handler
+    // (see buildQuestionButtons' rendering below), which should be enough
+    // on its own — this target check is a second, independent guard against
+    // the same failure mode some touch browsers are prone to: a tap's
+    // synthetic 'click' firing on both the button AND its ancestor even
+    // when stopPropagation was called on the button's handler, if that
+    // handler resolved after the browser had already begun dispatching the
+    // bubble phase for this element. Without it, a tapped question could
+    // read as "tap anywhere in the dialog" and close/advance instead of
+    // asking it.
+    this.dialogEl.onclick = (e) => {
+      if (e.target.closest('.dialog-question-btn, #dialogCloseBtn')) return;
+      this.advanceDialog();
+    };
     const dialogCloseBtn = document.getElementById('dialogCloseBtn');
     if (dialogCloseBtn) dialogCloseBtn.onclick = (e) => { e.stopPropagation(); this.closeDialog(); };
 
@@ -601,7 +617,7 @@ export default class RoomScene extends Phaser.Scene {
     // should leave the player still "standing there", free to pan straight
     // to whoever's next instead of re-approaching from scratch every time.
     this._interviewReturnFx = npc.cfgFx;
-    this._interviewReturnFy = npc.cfgFy;
+    this._interviewReturnFy = npc.approachFy;
     cam.zoom = 1;
     cam.centerOn(w / 2, h / 2);
 
@@ -774,6 +790,13 @@ export default class RoomScene extends Phaser.Scene {
     npc.npcPortraitKey = cfg.portraitKey;
     npc.cfgFx = cfg.fx;
     npc.cfgFy = cfg.fy;
+    // The approach camera frames higher than fx/fy alone would — fy is
+    // tuned as roughly a person's torso center (that's also where the
+    // marker dot sits), so zooming straight to it crops in tight on the
+    // chest instead of reading as "walked up to talk to them". Biasing
+    // toward the top of their hitbox keeps the face in frame instead, both
+    // on first approach and when the camera returns here after a chat.
+    npc.approachFy = cfg.hitbox ? cfg.hitbox.y0 + (cfg.hitbox.y1 - cfg.hitbox.y0) * 0.25 : cfg.fy;
     const matched = CHARACTERS.find(c => c.name === cfg.name);
     npc.answers = matched?.answers;
     // Separate from npcName, which stays the fixed internal identifier every
@@ -802,7 +825,7 @@ export default class RoomScene extends Phaser.Scene {
     });
     hitTarget.on('pointerdown', () => {
       if (this.isDialogOpen()) { this.advanceDialog(); return; }
-      this.approachPoint(cfg.fx, cfg.fy);
+      this.approachPoint(cfg.fx, npc.approachFy);
       this.talkToNPC(npc);
     });
     return npc;
@@ -935,6 +958,73 @@ export default class RoomScene extends Phaser.Scene {
     this.tweens.add({ targets: cam, zoom: base * 1.08, duration: 190, yoyo: true, ease: 'Sine.easeInOut' });
   }
 
+  // A second, more immersive way into a room alongside the plain arrow-button
+  // nav (see rooms.js's walkForward): a marker over the doorway that, on
+  // click, walks the camera up to it, cuts to a closer one-off shot of the
+  // door (BootScene's APPROACH_SHOTS — not a full room background), holds
+  // there for a beat, then arrives in the target room. The arrow buttons
+  // still work throughout; this is additive, not a replacement.
+  renderWalkForward(wf) {
+    const p = this.pointToScene(wf.fx, wf.fy);
+    const glowKey = this.ensureGlowDot();
+    const marker = this.add.image(p.x, p.y, glowKey);
+    marker.setTint(0xf3e6c8);
+    marker.setScale(MARKER_SCALE);
+    marker.setDepth(9999);
+    this.tweens.add({ targets: marker, scale: { from: MARKER_SCALE, to: MARKER_SCALE_PEAK }, alpha: { from: 0.95, to: 0.55 }, duration: 900, yoyo: true, repeat: -1 });
+    marker.setInteractive({
+      hitArea: new Phaser.Geom.Circle(16, 16, MARKER_HIT_RADIUS),
+      hitAreaCallback: Phaser.Geom.Circle.Contains,
+      useHandCursor: true
+    });
+    marker.on('pointerover', () => this.setPrompt(wf.label || 'Walk forward'));
+    marker.on('pointerout', () => this.setPrompt(null));
+    marker.on('pointerdown', () => {
+      if (this.isDialogOpen()) { this.advanceDialog(); return; }
+      this.walkForward(wf, marker);
+    });
+  }
+
+  walkForward(wf, marker) {
+    if (this._walking) return;
+    this._walking = true;
+    playClick();
+    marker.disableInteractive();
+    this.tweens.killTweensOf(marker);
+    this.setPrompt(null);
+
+    const cam = this.cameras.main;
+    const p = this.pointToScene(wf.fx, wf.fy);
+    this.tweens.killTweensOf(cam);
+    // Slower and tighter than approachPoint's zoom — this is meant to read
+    // as footsteps closing the distance, not a quick glance at a clue.
+    this.tweens.add({ targets: cam, zoom: 2.3, duration: 900, ease: 'Sine.easeIn' });
+    cam.pan(p.x, p.y, 900, 'Sine.easeIn');
+
+    this.time.delayedCall(950, () => {
+      const hasCloseup = wf.approachBgKey && this.hasRealAsset(wf.approachBgKey);
+      if (!hasCloseup) { this.finishWalkForward(wf); return; }
+      cam.fadeOut(200, 5, 5, 8);
+      cam.once('camerafadeoutcomplete', () => {
+        this.bg.setTexture(wf.approachBgKey);
+        this.fitBackgroundToScene();
+        cam.zoom = 1;
+        cam.centerOn(this.scale.width / 2, this.scale.height / 2);
+        cam.fadeIn(300, 5, 5, 8);
+        this.time.delayedCall(900, () => this.finishWalkForward(wf));
+      });
+    });
+  }
+
+  finishWalkForward(wf) {
+    playClick();
+    const cam = this.cameras.main;
+    cam.fadeOut(350, 5, 5, 8);
+    cam.once('camerafadeoutcomplete', () => {
+      this.scene.restart({ room: wf.targetRoom, failedKeys: this.failedKeys });
+    });
+  }
+
   // Eases the camera in on a clicked marker (see rooms.js's approachOnClick,
   // used for the crowded main room) so clicking someone in a wide shot full
   // of people actually reads as walking up to them, rather than just
@@ -983,7 +1073,10 @@ export default class RoomScene extends Phaser.Scene {
   setupPanControls() {
     const cfg = this.roomConfig;
     this.panTargets = cfg.approachOnClick
-      ? (cfg.npcs || []).filter(n => n.bakedIntoScene).map(n => ({ fx: n.fx, fy: n.fy })).sort((a, b) => a.fx - b.fx)
+      ? (cfg.npcs || [])
+        .filter(n => n.bakedIntoScene)
+        .map(n => ({ fx: n.fx, fy: n.hitbox ? n.hitbox.y0 + (n.hitbox.y1 - n.hitbox.y0) * 0.25 : n.fy }))
+        .sort((a, b) => a.fx - b.fx)
       : [];
     this.panIndex = -1;
 

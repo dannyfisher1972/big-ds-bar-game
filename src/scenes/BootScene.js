@@ -16,6 +16,13 @@ const ROOM_BACKGROUNDS = {
   'bg-office': 'office.png'
 };
 
+// A closer "walked up to it" shot shown mid-transition for a room's
+// walkForward hotspot (see rooms.js) — one per doorway/path this applies to,
+// not a full background in its own right, so kept out of ROOM_BACKGROUNDS.
+const APPROACH_SHOTS = {
+  'approach-frontdoor': 'frontdoor-closeup.png'
+};
+
 const PORTRAITS = {
   'portrait-jade': 'jade.png',
   'portrait-tiny': 'tiny.png',
@@ -51,6 +58,9 @@ export default class BootScene extends Phaser.Scene {
       this.load.image(key, import.meta.env.BASE_URL + 'assets/ai-art/' + file);
     });
     Object.entries(FULLBODY).forEach(([key, file]) => {
+      this.load.image(key, import.meta.env.BASE_URL + 'assets/ai-art/' + file);
+    });
+    Object.entries(APPROACH_SHOTS).forEach(([key, file]) => {
       this.load.image(key, import.meta.env.BASE_URL + 'assets/ai-art/' + file);
     });
   }
