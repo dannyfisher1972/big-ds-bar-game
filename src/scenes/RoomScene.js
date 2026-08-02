@@ -87,7 +87,7 @@ export default class RoomScene extends Phaser.Scene {
     this.npcs = [];
     (cfg.npcs || []).forEach(n => this.addNPC(n));
 
-    if (cfg.walkForward) this.renderWalkForward(cfg.walkForward);
+    this.setupDirNav();
 
     this.evidenceMarkers = [];
     if (this.preDiscovery) {
@@ -958,39 +958,44 @@ export default class RoomScene extends Phaser.Scene {
     this.tweens.add({ targets: cam, zoom: base * 1.08, duration: 190, yoyo: true, ease: 'Sine.easeInOut' });
   }
 
-  // A second, more immersive way into a room alongside the plain arrow-button
-  // nav (see rooms.js's walkForward): a marker over the doorway that, on
-  // click, walks the camera up to it, cuts to a closer one-off shot of the
-  // door (BootScene's APPROACH_SHOTS — not a full room background), holds
-  // there for a beat, then arrives in the target room. The arrow buttons
-  // still work throughout; this is additive, not a replacement.
-  renderWalkForward(wf) {
-    const p = this.pointToScene(wf.fx, wf.fy);
-    const glowKey = this.ensureGlowDot();
-    const marker = this.add.image(p.x, p.y, glowKey);
-    marker.setTint(0xf3e6c8);
-    marker.setScale(MARKER_SCALE);
-    marker.setDepth(9999);
-    this.tweens.add({ targets: marker, scale: { from: MARKER_SCALE, to: MARKER_SCALE_PEAK }, alpha: { from: 0.95, to: 0.55 }, duration: 900, yoyo: true, repeat: -1 });
-    marker.setInteractive({
-      hitArea: new Phaser.Geom.Circle(16, 16, MARKER_HIT_RADIUS),
-      hitAreaCallback: Phaser.Geom.Circle.Contains,
-      useHandCursor: true
+  // Persistent directional controls, always present rather than tied to a
+  // specific glowing spot in the art — left/right turn to the adjacent room
+  // (same rooms.js prevRoom/nextRoom the corner text buttons already drive),
+  // up walks forward via rooms.js's walkForward where a room defines one.
+  // Arrow keys mirror all three so desktop players don't need the mouse.
+  // Shares screen space with panControls (see updateDirNavVisibility): this
+  // is the "still looking at the wide room" control, panControls is the
+  // "already zoomed in on a person" one, and the two never show together.
+  setupDirNav() {
+    const cfg = this.roomConfig;
+    const leftBtn = document.getElementById('lookLeftBtn');
+    const rightBtn = document.getElementById('lookRightBtn');
+    const upBtn = document.getElementById('walkForwardBtn');
+    if (leftBtn) { leftBtn.onclick = () => this.goToRoom(cfg.prevRoom); leftBtn.disabled = !cfg.prevRoom; }
+    if (rightBtn) { rightBtn.onclick = () => this.goToRoom(cfg.nextRoom); rightBtn.disabled = !cfg.nextRoom; }
+    if (upBtn) { upBtn.onclick = () => this.walkForward(cfg.walkForward); upBtn.disabled = !cfg.walkForward; }
+
+    this.input.keyboard.on('keydown-UP', (event) => {
+      if (event) event.preventDefault();
+      if (this.isDialogOpen() || !cfg.walkForward) return;
+      this.walkForward(cfg.walkForward);
     });
-    marker.on('pointerover', () => this.setPrompt(wf.label || 'Walk forward'));
-    marker.on('pointerout', () => this.setPrompt(null));
-    marker.on('pointerdown', () => {
-      if (this.isDialogOpen()) { this.advanceDialog(); return; }
-      this.walkForward(wf, marker);
-    });
+    this.input.keyboard.on('keydown-LEFT', () => { if (!this.isDialogOpen()) this.goToRoom(cfg.prevRoom); });
+    this.input.keyboard.on('keydown-RIGHT', () => { if (!this.isDialogOpen()) this.goToRoom(cfg.nextRoom); });
+
+    this.updateDirNavVisibility();
   }
 
-  walkForward(wf, marker) {
-    if (this._walking) return;
+  updateDirNavVisibility() {
+    const dirNav = document.getElementById('dirNav');
+    if (!dirNav) return;
+    dirNav.classList.toggle('visible', this.cameras.main.zoom <= 1.01);
+  }
+
+  walkForward(wf) {
+    if (!wf || this._walking) return;
     this._walking = true;
     playClick();
-    marker.disableInteractive();
-    this.tweens.killTweensOf(marker);
     this.setPrompt(null);
 
     const cam = this.cameras.main;
@@ -1099,9 +1104,15 @@ export default class RoomScene extends Phaser.Scene {
 
   updatePanControlsVisibility() {
     const panControls = document.getElementById('panControls');
-    if (!panControls) return;
-    const show = this.roomConfig.approachOnClick && this.panTargets && this.panTargets.length > 1 && this.cameras.main.zoom > 1.01;
-    panControls.classList.toggle('visible', !!show);
+    if (panControls) {
+      const show = this.roomConfig.approachOnClick && this.panTargets && this.panTargets.length > 1 && this.cameras.main.zoom > 1.01;
+      panControls.classList.toggle('visible', !!show);
+    }
+    // Tied together rather than called separately at each of this method's
+    // call sites: dirNav (the wide-room-view controls) and panControls (the
+    // zoomed-in-on-a-person controls) are always each other's exact inverse,
+    // so one visibility pass covers both.
+    this.updateDirNavVisibility();
   }
 
   isDialogOpen() {

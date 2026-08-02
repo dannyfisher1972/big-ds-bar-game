@@ -414,6 +414,28 @@
   }
   #panControls button:hover{ border-color:var(--neon-pink); color:var(--neon-pink); }
 
+  /* --- Directional room nav: an always-present alternative to clicking a
+     specific glowing spot in the art — left/right turn to the adjacent room
+     (same rooms.js prevRoom/nextRoom the corner text buttons already use),
+     up walks forward into whatever this room's walkForward leads to (see
+     rooms.js), greyed out where that isn't defined yet. Shares panControls'
+     bottom-center spot but the two are mutually exclusive by zoom state:
+     this is the "still looking at the wide room" control, panControls is
+     the "already zoomed in on a person" one — see updateDirNavVisibility. --- */
+  #dirNav{
+    position:absolute; left:50%; bottom:58px; transform:translateX(-50%);
+    display:none; gap:10px; pointer-events:auto; z-index:5;
+  }
+  #dirNav.visible{ display:flex; }
+  #dirNav button{
+    width:38px; height:38px; font-size:18px; line-height:1;
+    background:rgba(20,18,15,0.8); border:1px solid var(--line); color:var(--ink-soft);
+    border-radius:3px; cursor:pointer; font-family:'Lora', Georgia, serif;
+  }
+  #dirNav button:hover{ border-color:var(--neon-pink); color:var(--neon-pink); }
+  #dirNav button:disabled{ opacity:.3; cursor:not-allowed; }
+  #dirNav button:disabled:hover{ border-color:var(--line); color:var(--ink-soft); }
+
   /* --- Quick-retalk sidebar: only people already talked to, minus anyone
      physically standing in the current room (they're already clickable
      there). Hidden while a dialog is open so it never overlaps it. --- */
@@ -702,6 +724,11 @@
       <div id="panControls">
         <button id="panPrevBtn" aria-label="Look at the previous person" title="Look left">‹</button>
         <button id="panNextBtn" aria-label="Look at the next person" title="Look right">›</button>
+      </div>
+      <div id="dirNav">
+        <button id="lookLeftBtn" aria-label="Turn left" title="Look left (Left arrow)">‹</button>
+        <button id="walkForwardBtn" aria-label="Walk forward" title="Walk forward (Up arrow)">▲</button>
+        <button id="lookRightBtn" aria-label="Turn right" title="Look right (Right arrow)">›</button>
       </div>
       <div id="actionButtons">
         <button id="caseFileBtn">🗎 Case File</button>
