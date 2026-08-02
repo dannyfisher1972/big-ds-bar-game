@@ -128,7 +128,10 @@ export const ROOMS = {
         name: 'Danny "Tiny" Fisher',
         portraitKey: 'portrait-tiny',
         bakedIntoScene: true,
-        hitbox: { x0: 0.35, y0: 0.22, x1: 0.51, y1: 0.96 },
+        // y1 capped short of the bottom control strip (dirNav/panControls
+        // both live there) — the two were overlapping, so an imprecise tap
+        // near those buttons could fall through and open his dialog instead.
+        hitbox: { x0: 0.35, y0: 0.22, x1: 0.51, y1: 0.8 },
         fx: 0.43,
         fy: 0.42,
         line: '"Ten years I\'ve had this man\'s back. Now there\'s a body in his office and half this bar looking at me like I did it."'
@@ -201,7 +204,7 @@ export const ROOMS = {
         name: 'Nikki Alvarez',
         portraitKey: 'portrait-nikki',
         bakedIntoScene: true,
-        hitbox: { x0: 0.25, y0: 0.05, x1: 0.51, y1: 1 },
+        hitbox: { x0: 0.25, y0: 0.05, x1: 0.51, y1: 0.8 },
         fx: 0.38,
         fy: 0.46,
         line: '"Guess it doesn\'t matter that he fired me anymore, huh. Kind of hard to feel bad about that part tonight."'
@@ -550,7 +553,7 @@ export const ROOMS = {
         name: 'Jade Marlow',
         portraitKey: 'portrait-jade',
         bakedIntoScene: true,
-        hitbox: { x0: 0.15, y0: 0.25, x1: 0.42, y1: 0.85 },
+        hitbox: { x0: 0.15, y0: 0.25, x1: 0.42, y1: 0.8 },
         fx: 0.3,
         fy: 0.5,
         line: '"I found him. I keep waiting for that to stop being the only thing anyone wants to talk to me about tonight."'
