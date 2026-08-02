@@ -224,6 +224,13 @@ export const ROOMS = {
     bgKey: 'bg-leftext',
     prevRoom: 'parkinglot',
     nextRoom: 'backext',
+    walkForward: {
+      fx: 0.65,
+      fy: 0.55,
+      label: 'Walk forward',
+      approachBgKey: 'approach-leftext',
+      targetRoom: 'backext'
+    },
     hotspots: [
       {
         id: 'L-01',
@@ -276,6 +283,13 @@ export const ROOMS = {
     bgKey: 'bg-backext',
     prevRoom: 'leftext',
     nextRoom: 'rightext',
+    walkForward: {
+      fx: 0.85,
+      fy: 0.5,
+      label: 'Walk forward',
+      approachBgKey: 'approach-backext',
+      targetRoom: 'rightext'
+    },
     hotspots: [
       {
         id: 'B-01',

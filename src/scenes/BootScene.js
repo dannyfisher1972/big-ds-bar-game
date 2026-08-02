@@ -21,7 +21,9 @@ const ROOM_BACKGROUNDS = {
 // not a full background in its own right, so kept out of ROOM_BACKGROUNDS.
 const APPROACH_SHOTS = {
   'approach-frontdoor': 'frontdoor-closeup.png',
-  'approach-parkinglot': 'parkinglot-approach.png'
+  'approach-parkinglot': 'parkinglot-approach.png',
+  'approach-leftext': 'leftext-approach.png',
+  'approach-backext': 'backext-approach.png'
 };
 
 const PORTRAITS = {
